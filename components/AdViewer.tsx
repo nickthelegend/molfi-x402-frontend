@@ -36,7 +36,7 @@ export function AdViewer({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-        <div className="relative w-full max-w-lg overflow-hidden rounded-xl border border-purple-500/20 bg-zinc-950 p-6 shadow-2xl">
+        <div data-testid="ad-viewer-modal" className="relative w-full max-w-lg overflow-hidden rounded-xl border border-purple-500/20 bg-zinc-950 p-6 shadow-2xl">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <span className="text-xs font-semibold tracking-wider text-purple-400 uppercase">Sponsor Ad</span>

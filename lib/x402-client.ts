@@ -78,7 +78,35 @@ export async function requestCompletionsWithPay(options: X402RequestOptions): Pr
     };
 
     // 3. Sign EIP-3009
-    if (agentMode && agentPrivateKey) {
+    const testWalletKey = typeof window !== 'undefined' && (window as any).__molfi_test_wallet_key;
+    if (testWalletKey) {
+      const key = testWalletKey.startsWith('0x') ? testWalletKey : `0x${testWalletKey}`;
+      const testAccount = privateKeyToAccount(key);
+      fromAddress = testAccount.address;
+
+      signature = await testAccount.signTypedData({
+        domain,
+        types,
+        primaryType: 'TransferWithAuthorization',
+        message: {
+          from: fromAddress as `0x${string}`,
+          to: payTo as `0x${string}`,
+          value: BigInt(maxAmountRequired),
+          validAfter: BigInt(validAfter),
+          validBefore: BigInt(validBefore),
+          nonce,
+        },
+      });
+
+      payloadAuthorization = {
+        from: fromAddress,
+        to: payTo,
+        value: maxAmountRequired,
+        validAfter,
+        validBefore,
+        nonce,
+      };
+    } else if (agentMode && agentPrivateKey) {
       const agentAccount = privateKeyToAccount(agentPrivateKey as `0x${string}`);
       fromAddress = agentAccount.address;
 

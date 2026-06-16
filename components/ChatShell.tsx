@@ -84,6 +84,12 @@ const getModelCost = (modelId: string): number => {
     'claude-sonnet-4.5': 0.01,
     'gpt-4o': 0.01,
     'claude-opus-4.x': 0.03,
+    'llama-nemotron-rerank-vl-1b-v2-free': 0.0001,
+    'nex-n2-pro-free': 0.0001,
+    'riverflow-v2.5-pro': 0.0002,
+    'riverflow-v2.5-fast': 0.0001,
+    'nemotron-3.5-content-safety-free': 0.0001,
+    'nemotron-3-ultra-550b-a55b-free': 0.0002,
   };
   return costs[modelId] || 0.01;
 };
@@ -96,6 +102,8 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
     credits,
     agentMode,
     agentPrivateKey,
+    agentAddress,
+    setAgentMode,
     addMessage,
     updateMessageContent,
     updateMessageMetadata,
@@ -331,6 +339,19 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
 
             {/* Action controls + Connect Wallet */}
             <div className="flex items-center gap-4">
+              {/* Credits counter & Earn Credits button */}
+              {mounted && (
+                <div className="flex items-center gap-2 border border-border bg-surface-2/40 px-3 py-1.5 rounded-xl text-xs text-white">
+                  <span>🎬 <span data-testid="credits-balance">{credits}</span> credits</span>
+                  <button
+                    onClick={onWatchAdClick}
+                    className="text-primary hover:text-primary/80 transition-all font-bold cursor-pointer ml-1"
+                  >
+                    Earn Credits
+                  </button>
+                </div>
+              )}
+
               <button
                 onClick={() => setConsoleOpen(!consoleOpen)}
                 className="text-text-muted hover:text-white cursor-pointer p-1.5 rounded hover:bg-surface-2/40 transition-all"
@@ -347,7 +368,11 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
               </button>
 
               {/* RainbowKit Connected Wallet Button */}
-              {mounted && <ConnectButton />}
+              {mounted && (
+                <div data-testid="wallet-pill">
+                  <ConnectButton />
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -369,7 +394,10 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
           {/* Toggle Switches */}
           <div className="flex items-center bg-[#14141a]/60 border border-border p-1.5 rounded-2xl mb-8">
             <button
-              onClick={() => setActiveTab('human')}
+              onClick={() => {
+                setActiveTab('human');
+                setAgentMode(false);
+              }}
               className={`px-6 py-2.5 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer ${
                 activeTab === 'human'
                   ? 'bg-primary text-black font-black primary-glow'
@@ -379,7 +407,11 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
               I'M A HUMAN
             </button>
             <button
-              onClick={() => setActiveTab('agent')}
+              data-testid="agent-mode-toggle"
+              onClick={() => {
+                setActiveTab('agent');
+                setAgentMode(true);
+              }}
               className={`px-6 py-2.5 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer ${
                 activeTab === 'agent'
                   ? 'bg-primary text-black font-black primary-glow'
@@ -390,21 +422,28 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
             </button>
           </div>
 
+          {/* Agent Address display for E2E tests */}
+          {activeTab === 'agent' && agentAddress && (
+            <div data-testid="agent-address-display" className="text-xs font-mono text-primary mb-8 bg-[#14141a]/40 border border-border/60 px-4 py-2 rounded-xl">
+              Agent Wallet: {agentAddress}
+            </div>
+          )}
+
           {/* Input Console Bar */}
           <div className="w-full max-w-3xl bg-[#14141a]/80 border border-border rounded-3xl p-3 flex items-center gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.5)] focus-within:border-primary transition-all">
             <span className="text-on-surface-variant font-mono text-sm ml-2">&gt;_</span>
-            <input
-              type="text"
+            <textarea
               placeholder={
                 activeTab === 'human'
-                  ? "Describe the task for your agents..."
-                  : "Enter programmatic prompt payload..."
+                  ? "Ask Molfi — Describe the task for your agents..."
+                  : "Ask Molfi — Enter programmatic prompt payload..."
               }
               value={promptValue}
               onChange={(e) => setPromptValue(e.target.value)}
-              className="bg-transparent border-none outline-none text-white flex-1 text-sm placeholder:text-text-dim"
+              className="bg-transparent border-none outline-none text-white flex-1 text-sm placeholder:text-text-dim resize-none h-6 focus:outline-none"
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
                   handleRequestClick();
                 }
               }}
@@ -423,6 +462,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
 
             {/* Request Trigger */}
             <button
+              data-testid="send-message-button"
               onClick={handleRequestClick}
               disabled={loading}
               className="bg-primary text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 primary-glow hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-50"

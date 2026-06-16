@@ -8,7 +8,10 @@ export function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === 'user';
 
   return (
-    <div className={`flex w-full flex-col gap-1.5 p-4 ${isUser ? 'items-end' : 'items-start'}`}>
+    <div 
+      data-testid={isUser ? undefined : "assistant-message"}
+      className={`flex w-full flex-col gap-1.5 p-4 ${isUser ? 'items-end' : 'items-start'}`}
+    >
       <div className="flex items-center gap-2">
         <span className="text-xs font-semibold tracking-wider text-text-muted uppercase">
           {isUser ? 'You' : 'Molfi Assistant'}
@@ -16,7 +19,7 @@ export function MessageBubble({ message }: { message: Message }) {
 
         {/* Paid-via Badge */}
         {!isUser && message.paidVia && (
-          <div className="flex items-center gap-1">
+          <div data-testid="paid-via-badge" className="flex items-center gap-1">
             {message.paidVia === 'x402' ? (
               <a
                 href={`https://testnet.snowtrace.io/tx/${message.txHash}`}

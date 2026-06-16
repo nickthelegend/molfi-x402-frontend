@@ -1,10 +1,12 @@
+'use client';
+
+import React, { Suspense } from 'react';
 import { AnimatedAIChat } from '../components/ui/animated-ai-chat';
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen bg-[#050505] overflow-hidden">
+    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center text-white font-mono uppercase tracking-widest">Loading Molfi Chat...</div>}>
       <AnimatedAIChat />
-    </main>
+    </Suspense>
   );
 }
-

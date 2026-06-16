@@ -10,7 +10,7 @@ interface AdHostProps {
   slotId: string;
   surface: 'frontend' | 'extension';
   apiBase: string;
-  onCredit: (jwt: string) => void;
+  onCredit: (jwt: string, txHash?: string) => void;
 }
 
 export function useSessionId() {

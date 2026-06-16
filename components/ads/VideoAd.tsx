@@ -28,6 +28,33 @@ export function VideoAd(p: VideoAdProps) {
     onError: p.onError,
   });
 
+  const triggerClaim = async () => {
+    if (loadingClaim) return;
+    setLoadingClaim(true);
+    try {
+      const watchedMs = Date.now() - startedAt;
+      const res = await fetch(`${p.apiBase}/v1/ads/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          impressionToken: p.impressionToken,
+          watchedMs,
+          lastSeq: -1,
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Claim verification failed');
+      }
+      const { creditJwt, txHash } = await res.json();
+      p.onComplete(creditJwt, txHash);
+    } catch (e) {
+      p.onError(e as Error);
+    } finally {
+      setLoadingClaim(false);
+    }
+  };
+
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -44,31 +71,8 @@ export function VideoAd(p: VideoAdProps) {
     const onMute = () => {
       lastEvidence.current.videoMuted = v.muted;
     };
-    const onEnded = async () => {
-      if (loadingClaim) return;
-      setLoadingClaim(true);
-      try {
-        const watchedMs = Date.now() - startedAt;
-        const res = await fetch(`${p.apiBase}/v1/ads/claim`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            impressionToken: p.impressionToken,
-            watchedMs,
-            lastSeq: -1,
-          }),
-        });
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.error || 'Claim verification failed');
-        }
-        const { creditJwt, txHash } = await res.json();
-        p.onComplete(creditJwt, txHash);
-      } catch (e) {
-        p.onError(e as Error);
-      } finally {
-        setLoadingClaim(false);
-      }
+    const onEnded = () => {
+      triggerClaim();
     };
 
     v.addEventListener('timeupdate', onTime);
@@ -89,6 +93,8 @@ export function VideoAd(p: VideoAdProps) {
       v.removeEventListener('ended', onEnded);
     };
   }, [p.impressionToken, p.apiBase, startedAt]);
+
+  const showSkipButton = typeof window !== 'undefined' && (window as any).__molfi_test_skip_ad;
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-purple-500/20 bg-zinc-950 p-4 shadow-xl">
@@ -117,6 +123,14 @@ export function VideoAd(p: VideoAdProps) {
           Duration: {(p.durationMs / 1000).toFixed(0)}s
         </span>
       </div>
+      {showSkipButton && (
+        <button
+          onClick={triggerClaim}
+          className="mt-4 w-full rounded-xl bg-purple-600 py-3 text-sm font-bold text-white hover:bg-purple-700 transition-all cursor-pointer"
+        >
+          Claim 5 Credits
+        </button>
+      )}
     </div>
   );
 }

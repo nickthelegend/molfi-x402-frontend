@@ -377,7 +377,7 @@ export function AnimatedAIChat() {
                                 onKeyDown={handleKeyDown}
                                 onFocus={() => setInputFocused(true)}
                                 onBlur={() => setInputFocused(false)}
-                                placeholder="Ask zap a question..."
+                                placeholder="Ask Molfi a question..."
                                 containerClassName="w-full"
                                 className={cn(
                                     "w-full px-4 py-3",
@@ -462,6 +462,7 @@ export function AnimatedAIChat() {
                             
                             <motion.button
                                 type="button"
+                                data-testid="send-message-button"
                                 onClick={handleSendMessage}
                                 whileHover={{ scale: 1.01 }}
                                 whileTap={{ scale: 0.98 }}

@@ -56,6 +56,35 @@ export function ImageAd(p: ImageAdProps) {
     return () => obs.disconnect();
   }, []);
 
+  const showSkipButton = typeof window !== 'undefined' && (window as any).__molfi_test_skip_ad;
+
+  const triggerClaim = async () => {
+    if (loadingClaim) return;
+    setLoadingClaim(true);
+    try {
+      const elapsed = Date.now() - startedAt;
+      const res = await fetch(`${p.apiBase}/v1/ads/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          impressionToken: p.impressionToken,
+          watchedMs: elapsed,
+          lastSeq: -1,
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Claim failed');
+      }
+      const { creditJwt, txHash } = await res.json();
+      p.onComplete(creditJwt, txHash);
+    } catch (e) {
+      p.onError(e as Error);
+    } finally {
+      setLoadingClaim(false);
+    }
+  };
+
   // Timer check loop
   useEffect(() => {
     const timer = setInterval(async () => {
@@ -66,30 +95,7 @@ export function ImageAd(p: ImageAdProps) {
       if (elapsed >= p.dwellMs && !completed) {
         clearInterval(timer);
         setCompleted(true);
-        if (loadingClaim) return;
-        setLoadingClaim(true);
-
-        try {
-          const res = await fetch(`${p.apiBase}/v1/ads/claim`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              impressionToken: p.impressionToken,
-              watchedMs: elapsed,
-              lastSeq: -1,
-            }),
-          });
-          if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.error || 'Claim failed');
-          }
-          const { creditJwt, txHash } = await res.json();
-          p.onComplete(creditJwt, txHash);
-        } catch (e) {
-          p.onError(e as Error);
-        } finally {
-          setLoadingClaim(false);
-        }
+        triggerClaim();
       }
     }, 100);
 
@@ -139,6 +145,14 @@ export function ImageAd(p: ImageAdProps) {
           Dwell required: {(p.dwellMs / 1000).toFixed(0)}s
         </span>
       </div>
+      {showSkipButton && (
+        <button
+          onClick={triggerClaim}
+          className="mt-4 w-full rounded-xl bg-purple-600 py-3 text-sm font-bold text-white hover:bg-purple-700 transition-all cursor-pointer"
+        >
+          Claim 5 Credits
+        </button>
+      )}
     </div>
   );
 }
