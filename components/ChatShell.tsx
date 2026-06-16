@@ -13,6 +13,7 @@ import { AgentModePanel } from './AgentModePanel';
 import { PaymentInspector } from './PaymentInspector';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AI_Prompt } from './ui/animated-ai-input';
 import { 
   Settings, 
   Send, 
@@ -98,6 +99,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   const {
     messages,
     selectedModel,
+    setSelectedModel,
     jwt,
     credits,
     agentMode,
@@ -118,6 +120,11 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   const { show: showTxModal } = useTxModal();
   const searchParams = useSearchParams();
 
+  interface ModelOption {
+    id: string;
+    name: string;
+  }
+
   const [activeTab, setActiveTab] = useState<'human' | 'agent'>('human');
   const [promptValue, setPromptValue] = useState('');
   const [loading, setLoading] = useState(false);
@@ -126,6 +133,23 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [models, setModels] = useState<ModelOption[]>([]);
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8787';
+      try {
+        const res = await fetch(`${backendUrl}/v1/models`);
+        if (res.ok) {
+          const data = await res.json() as ModelOption[];
+          setModels(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch models from backend:', err);
+      }
+    };
+    fetchModels();
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -429,52 +453,23 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
             </div>
           )}
 
-          {/* Input Console Bar */}
-          <div className="w-full max-w-3xl bg-[#14141a]/80 border border-border rounded-3xl p-3 flex items-center gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.5)] focus-within:border-primary transition-all">
-            <span className="text-on-surface-variant font-mono text-sm ml-2">&gt;_</span>
-            <textarea
-              placeholder={
-                activeTab === 'human'
-                  ? "Ask Molfi — Describe the task for your agents..."
-                  : "Ask Molfi — Enter programmatic prompt payload..."
-              }
-              value={promptValue}
-              onChange={(e) => setPromptValue(e.target.value)}
-              className="bg-transparent border-none outline-none text-white flex-1 text-sm placeholder:text-text-dim resize-none h-6 focus:outline-none"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleRequestClick();
-                }
-              }}
-            />
-            
-            {/* Model Selector directly in the chat bar */}
-            <div className="w-40 flex-shrink-0">
-              <ModelPicker />
-            </div>
-
-            {/* Cost Indicator */}
-            <div className="flex items-center gap-1 bg-[#0b0b0d] border border-border px-3 py-2 rounded-xl font-mono text-xs text-white">
-              <span className="text-text-muted">$</span>
-              <span className="font-bold">{getModelCost(selectedModel).toFixed(3)}</span>
-            </div>
-
-            {/* Request Trigger */}
-            <button
-              data-testid="send-message-button"
-              onClick={handleRequestClick}
-              disabled={loading}
-              className="bg-primary text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 primary-glow hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-            >
-              {loading ? (
-                <span className="animate-spin h-3 w-3 border-2 border-black border-t-transparent rounded-full" />
-              ) : (
-                <Send size={12} className="text-black" />
-              )}
-              REQUEST
-            </button>
-          </div>
+          {/* Animated AI Input Console Bar */}
+          <AI_Prompt
+            value={promptValue}
+            onChange={setPromptValue}
+            onSend={() => handleRequestClick()}
+            selectedModel={selectedModel}
+            setSelectedModel={setSelectedModel}
+            disabled={loading}
+            placeholder={
+              activeTab === 'human'
+                ? "Ask Molfi — Describe the task for your agents..."
+                : "Ask Molfi — Enter programmatic prompt payload..."
+            }
+            models={models}
+            cost={getModelCost(selectedModel)}
+            className="w-full max-w-3xl"
+          />
 
           {/* Trending Operations */}
           <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
