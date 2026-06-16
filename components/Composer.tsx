@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useWalletClient, useAccount } from 'wagmi';
 import { useChatStore } from '../store/chatStore';
 import { requestCompletionsWithPay } from '../lib/x402-client';
+import { useTxModal } from './tx/TxModalProvider';
 
 export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   const {
@@ -23,6 +24,7 @@ export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
 
   const { data: walletClient } = useWalletClient();
   const { address } = useAccount();
+  const { show: showTxModal } = useTxModal();
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,11 +59,17 @@ export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
         agentPrivateKey,
         onPaymentCaptured: (data) => {
           setInspectorData(data);
-          if (data.decodedXPaymentResponse?.success) {
+          if (data.decodedXPaymentResponse?.success && data.decodedXPaymentResponse?.transaction) {
             // Estimate cents based on signature value field
             const valueRaw = data.decodedXPayment?.payload?.authorization?.value || '0';
             const costUsdc = parseFloat(valueRaw) / 1000000;
             incrementAgentSpent(costUsdc);
+            showTxModal({
+              hash: data.decodedXPaymentResponse.transaction,
+              status: 'pending',
+              network: 'avalanche-fuji',
+              label: `x402 payment · ${costUsdc.toFixed(3)} USDC`,
+            });
           }
         },
       });

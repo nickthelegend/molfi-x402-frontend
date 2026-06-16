@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, http } from 'wagmi';
 import { avalancheFuji } from 'wagmi/chains';
 import { RainbowKitProvider, darkTheme, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { TxModalProvider } from './tx/TxModalProvider';
 
 const queryClient = new QueryClient();
 
@@ -24,13 +25,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           theme={darkTheme({
-            accentColor: '#E84142',
+            accentColor: '#ad46ff',
             accentColorForeground: 'white',
             borderRadius: 'medium',
             overlayBlur: 'small',
           })}
         >
-          {children}
+          <TxModalProvider>
+            {children}
+          </TxModalProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
