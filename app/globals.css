@@ -4,56 +4,95 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --bg: #0a0a0b;
-    --surface: #111114;
-    --surface-2: #17171c;
-    --border: #26262d;
-    --text: #f5f5f7;
-    --text-muted: #9b9ba3;
-    --accent: #E84142;
-    --accent-2: #FF6B6C;
-    --success: #22c55e;
-    --font-mono: 'JetBrains Mono', monospace;
-  }
+:root {
+  --bg:         #000000;
+  --surface:    #0b0b0d;
+  --surface-2:  #14141a;
+  --surface-3:  #1c1c24;
+  --border:     #1f1f26;
+  --border-2:   #2a2a33;
 
-  body {
-    background-color: var(--bg);
-    color: var(--text);
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-  }
+  --text:       #ffffff;
+  --text-muted: #8a8a93;
+  --text-dim:   #56565e;
 
-  /* Custom Scrollbar for premium feel */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: var(--bg);
-  }
-  ::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
-  }
+  --accent:     #ad46ff;        /* signature purple */
+  --accent-2:   #c98aff;        /* italic / hover */
+  --accent-dim: rgba(173, 70, 255, 0.14);
+  --accent-glow:rgba(173, 70, 255, 0.35);
+
+  --success:    #22c55e;
+  --warning:    #f59e0b;
+  --danger:     #ef4444;
+
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --font-display: var(--font-display), 'Space Grotesk', system-ui, sans-serif;
+  --font-body:    var(--font-body),    'Inter', system-ui, sans-serif;
+  --font-mono:    var(--font-mono),    'JetBrains Mono', ui-monospace, monospace;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, .headline {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+code, .mono, .hash {
+  font-family: var(--font-mono);
+}
+
+.headline em {
+  font-style: italic;
+  color: var(--accent);
+  font-feature-settings: "ss01" on;
+}
+
+/* Custom Scrollbar for premium feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 /* Glassmorphism utility */
 .glass {
-  background: rgba(17, 17, 20, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(11, 11, 13, 0.7);
+  backdrop-filter: blur(14px) saturate(160%);
   border: 1px solid var(--border);
 }
 
-/* Dot grid overlay for visual polish */
-.dot-grid {
-  background-image: radial-gradient(var(--border) 1px, transparent 1px);
-  background-size: 20px 20px;
+/* Purple-glow pill (CTA + badges) */
+.pill-accent {
+  background: linear-gradient(180deg, #b855ff 0%, #9a2eff 100%);
+  color: #fff;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset, 0 8px 30px var(--accent-glow);
 }
+
+/* Subtle dot grid backdrop */
+.dot-grid {
+  background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+

@@ -21,9 +21,14 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
         <div className="flex w-64 flex-col bg-surface border-r border-border p-4 transition-all duration-300">
           {/* Header wordmark */}
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-xl font-bold tracking-tight text-text">
-              MOLFI<span className="text-accent">.</span>FUN
-            </h1>
+            <div className="flex items-center gap-2">
+              <svg className="h-5 w-5 text-accent animate-pulse" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 22L12 17L22 22L12 2Z" fill="currentColor" />
+              </svg>
+              <h1 className="text-xl font-bold tracking-wider text-text font-display">
+                MOLFI<span className="text-accent">.</span>FUN
+              </h1>
+            </div>
             <button
               onClick={() => setSidebarOpen(false)}
               className="text-xs text-text-muted hover:text-text cursor-pointer"

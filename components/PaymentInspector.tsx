@@ -67,25 +67,28 @@ export function PaymentInspector() {
           {/* Decoded Payment Response */}
           {inspectorData.decodedXPaymentResponse && (
             <div>
-              <span className="text-[10px] font-semibold text-success uppercase">Response Header: X-PAYMENT-RESPONSE</span>
+              <span className="text-[10px] font-semibold text-accent uppercase">Response Header: X-PAYMENT-RESPONSE</span>
               <div className="rounded bg-bg p-2.5 border border-border mt-1 text-text-muted">
                 <div className="flex items-center justify-between mb-1">
                   <span>Settlement Success:</span>
                   <span className="font-bold text-success">TRUE</span>
                 </div>
-                <div className="mb-1">
+                <div className="mb-2">
                   <span className="text-[10px] text-text-muted">Payer: </span>
-                  <span className="text-text block truncate">{inspectorData.decodedXPaymentResponse.payer}</span>
+                  <span className="text-text block truncate select-all">{inspectorData.decodedXPaymentResponse.payer}</span>
                 </div>
-                <div className="border-t border-border mt-1.5 pt-1.5">
-                  <div className="text-accent font-semibold mb-1">On-Chain Tx Hash:</div>
+                <div className="border-t border-border mt-2 pt-2">
+                  <div className="text-accent font-semibold mb-1 text-[10px]">On-Chain Transaction:</div>
+                  <div className="text-text truncate select-all mb-2 font-mono text-[10px]">
+                    {inspectorData.decodedXPaymentResponse.transaction}
+                  </div>
                   <a
                     href={`https://testnet.snowtrace.io/tx/${inspectorData.decodedXPaymentResponse.transaction}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-accent hover:text-accent-2 hover:underline block truncate"
+                    className="w-full inline-block text-center rounded bg-accent hover:bg-accent-2 text-white font-bold py-1.5 transition-all text-[11px]"
                   >
-                    {inspectorData.decodedXPaymentResponse.transaction} ↗
+                    View on Snowtrace ↗
                   </a>
                 </div>
               </div>

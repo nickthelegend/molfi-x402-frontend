@@ -44,7 +44,7 @@ export function ModelPicker() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-2.5 text-left text-sm text-text hover:border-text-muted transition-all"
+        className="flex w-full items-center justify-between gap-3 rounded-lg border border-accent bg-accent-dim px-4 py-2.5 text-left text-sm text-text hover:brightness-110 transition-all"
       >
         <div>
           <div className="font-semibold text-text">{activeModel.name}</div>
@@ -65,7 +65,7 @@ export function ModelPicker() {
                 setIsOpen(false);
               }}
               className={`flex w-full flex-col p-3 text-left hover:bg-surface-2 transition-all ${
-                model.id === selectedModel ? 'bg-surface-2 border-l-2 border-accent' : ''
+                model.id === selectedModel ? 'bg-accent-dim border border-accent' : ''
               }`}
             >
               <div className="flex items-center justify-between">

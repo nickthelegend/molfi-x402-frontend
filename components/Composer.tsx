@@ -145,7 +145,7 @@ export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
 
         <form
           onSubmit={handleSend}
-          className="relative flex items-end gap-2 rounded-xl border border-border bg-surface p-2 shadow-lg focus-within:border-accent transition-all"
+          className="relative flex items-end gap-2 rounded-xl glass p-2 shadow-lg focus-within:border-accent transition-all"
         >
           <textarea
             value={input}
@@ -182,7 +182,7 @@ export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
             <button
               type="submit"
               disabled={loading || !canSend}
-              className="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-white hover:bg-accent/90 disabled:opacity-50 transition-all cursor-pointer"
+              className="rounded-full pill-accent px-5 py-1.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 transition-all cursor-pointer"
             >
               {loading ? '...' : 'Send'}
             </button>

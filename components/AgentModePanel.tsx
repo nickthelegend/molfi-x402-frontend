@@ -98,6 +98,12 @@ export function AgentModePanel() {
               {agentSpent.toFixed(3)} / {agentSpendLimit.toFixed(2)} USDC
             </span>
           </div>
+          <div className="h-1.5 w-full bg-border rounded-full overflow-hidden mt-1">
+            <div 
+              className="h-full bg-accent transition-all duration-300" 
+              style={{ width: `${Math.min((agentSpent / agentSpendLimit) * 100, 100)}%` }} 
+            />
+          </div>
 
           {agentMode && (
             <div className="mt-2 text-[9px] text-accent font-semibold text-center animate-pulse">
