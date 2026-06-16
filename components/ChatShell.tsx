@@ -8,6 +8,7 @@ import { MessageList } from './MessageList';
 import { Composer } from './Composer';
 import { PaymentInspector } from './PaymentInspector';
 import { AgentModePanel } from './AgentModePanel';
+import { Menu } from 'lucide-react';
 
 export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   const { clearChat } = useChatStore();
@@ -80,10 +81,19 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
         <div className="flex h-14 items-center justify-between border-b border-border px-6 bg-surface/50">
           <div className="flex items-center gap-2">
             {!sidebarOpen && (
-              <div className="flex items-center gap-1.5 mr-2">
-                <img src="/logo.png" alt="MOLFI.FUN Logo" className="h-5 w-5 object-contain" />
-                <span className="text-sm font-bold text-text">MOLFI.FUN</span>
-              </div>
+              <>
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="mr-2 text-text-muted hover:text-text cursor-pointer p-1.5 rounded hover:bg-surface-2 transition-all flex items-center justify-center"
+                  title="Open Sidebar"
+                >
+                  <Menu size={18} />
+                </button>
+                <div className="flex items-center gap-1.5 mr-2">
+                  <img src="/logo.png" alt="MOLFI.FUN Logo" className="h-5 w-5 object-contain" />
+                  <span className="text-sm font-bold text-text">MOLFI.FUN</span>
+                </div>
+              </>
             )}
             <span className="rounded bg-accent/10 border border-accent/20 px-2.5 py-0.5 text-[10px] font-semibold text-accent uppercase tracking-wider">
               Fuji Testnet
