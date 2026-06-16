@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useWalletClient, useAccount } from 'wagmi';
@@ -112,6 +112,11 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const toggleDropdown = (label: string | null) => {
     setOpenDropdown(label);
@@ -366,7 +371,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
               </button>
 
               {/* RainbowKit Connected Wallet Button */}
-              <ConnectButton />
+              {mounted && <ConnectButton />}
             </div>
           </div>
         </header>
