@@ -22,9 +22,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
           {/* Header wordmark */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <svg className="h-5 w-5 text-accent animate-pulse" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 22L12 17L22 22L12 2Z" fill="currentColor" />
-              </svg>
+              <img src="/logo.png" alt="MOLFI.FUN Logo" className="h-6 w-6 object-contain" />
               <h1 className="text-xl font-bold tracking-wider text-text font-display">
                 MOLFI<span className="text-accent">.</span>FUN
               </h1>
@@ -82,7 +80,10 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
         <div className="flex h-14 items-center justify-between border-b border-border px-6 bg-surface/50">
           <div className="flex items-center gap-2">
             {!sidebarOpen && (
-              <span className="text-sm font-bold text-text">MOLFI.FUN</span>
+              <div className="flex items-center gap-1.5 mr-2">
+                <img src="/logo.png" alt="MOLFI.FUN Logo" className="h-5 w-5 object-contain" />
+                <span className="text-sm font-bold text-text">MOLFI.FUN</span>
+              </div>
             )}
             <span className="rounded bg-accent/10 border border-accent/20 px-2.5 py-0.5 text-[10px] font-semibold text-accent uppercase tracking-wider">
               Fuji Testnet
