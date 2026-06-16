@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 :root {
-  --bg:         #000000;
+  --bg:         #0d0d0d;
   --surface:    #0b0b0d;
   --surface-2:  #14141a;
   --surface-3:  #1c1c24;
@@ -20,6 +20,24 @@
   --accent-2:   #c98aff;        /* italic / hover */
   --accent-dim: rgba(173, 70, 255, 0.14);
   --accent-glow:rgba(173, 70, 255, 0.35);
+
+  /* Landing page compatible variables */
+  --primary: #c899ff;
+  --primary-dim: #bb83fd;
+  --primary-container: #be86ff;
+  --on-primary: #44007f;
+  --on-primary-container: #340064;
+
+  --surface-container-lowest: #000000;
+  --surface-container-low: #131313;
+  --surface-container: #191919;
+  --surface-container-high: #1f1f1f;
+  --surface-container-highest: #262626;
+
+  --on-surface: #ffffff;
+  --on-surface-variant: #ababab;
+  --outline: #757575;
+  --outline-variant: #484848;
 
   --success:    #22c55e;
   --warning:    #f59e0b;
@@ -94,5 +112,9 @@ code, .mono, .hash {
 .dot-grid {
   background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
   background-size: 22px 22px;
+}
+
+.primary-glow {
+  box-shadow: 0 0 30px -5px rgba(200, 153, 255, 0.3);
 }
 
