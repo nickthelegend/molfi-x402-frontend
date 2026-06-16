@@ -44,19 +44,16 @@ export function ModelPicker() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between gap-3 rounded-lg border border-accent bg-accent-dim px-4 py-2.5 text-left text-sm text-text hover:brightness-110 transition-all"
+        className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-[#0b0b0d] px-3.5 py-2 text-left text-xs text-text hover:brightness-110 transition-all select-none"
       >
         <div>
-          <div className="font-semibold text-text">{activeModel.name}</div>
-          <div className="text-xs text-text-muted">
-            💸 {activeModel.usdcCost} USDC · 🎬 {activeModel.creditCost} credits
-          </div>
+          <div className="font-bold text-white tracking-wider uppercase text-[10px]">{activeModel.name}</div>
         </div>
-        <span className="text-xs text-text-muted">▼</span>
+        <span className="text-[9px] text-text-muted">▲</span>
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 z-40 mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-surface shadow-xl">
+        <div className="absolute bottom-full mb-2 left-0 right-0 z-50 max-h-60 overflow-y-auto rounded-xl border border-border bg-[#0b0b0d] shadow-2xl p-1 flex flex-col gap-1 w-52">
           {models.map((model) => (
             <button
               key={model.id}
@@ -64,17 +61,17 @@ export function ModelPicker() {
                 setSelectedModel(model.id);
                 setIsOpen(false);
               }}
-              className={`flex w-full flex-col p-3 text-left hover:bg-surface-2 transition-all ${
-                model.id === selectedModel ? 'bg-accent-dim border border-accent' : ''
+              className={`flex w-full flex-col p-2.5 rounded-lg text-left hover:bg-white/5 transition-all ${
+                model.id === selectedModel ? 'bg-accent-dim border border-accent/30' : ''
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-text">{model.name}</span>
-                <span className="text-xs text-text-muted font-mono">
-                  ${model.usdcCost} / {model.creditCost}c
+                <span className="text-xs font-black text-white uppercase tracking-wider">{model.name}</span>
+                <span className="text-[9px] text-primary font-mono font-bold">
+                  {model.usdcCost} USDC
                 </span>
               </div>
-              <p className="text-xs text-text-muted mt-0.5">{model.description}</p>
+              <p className="text-[10px] text-text-muted mt-0.5 font-medium leading-tight">{model.description}</p>
             </button>
           ))}
         </div>
@@ -82,3 +79,4 @@ export function ModelPicker() {
     </div>
   );
 }
+

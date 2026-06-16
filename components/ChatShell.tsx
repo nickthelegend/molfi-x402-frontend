@@ -11,6 +11,8 @@ import { ModelPicker } from './ModelPicker';
 import { MessageList } from './MessageList';
 import { AgentModePanel } from './AgentModePanel';
 import { PaymentInspector } from './PaymentInspector';
+import { useSearchParams } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Settings, 
   Send, 
@@ -27,6 +29,7 @@ import {
   MessageCircle,
   ArrowUpRight
 } from 'lucide-react';
+
 
 interface DropdownProps {
   label: string;
@@ -105,6 +108,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   const { data: walletClient } = useWalletClient();
   const { address } = useAccount();
   const { show: showTxModal } = useTxModal();
+  const searchParams = useSearchParams();
 
   const [activeTab, setActiveTab] = useState<'human' | 'agent'>('human');
   const [promptValue, setPromptValue] = useState('');
@@ -113,14 +117,21 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    const p = searchParams.get('prompt');
+    if (p) {
+      setPromptValue(p);
+      setConsoleOpen(true);
+    }
+  }, [searchParams]);
 
   const toggleDropdown = (label: string | null) => {
     setOpenDropdown(label);
   };
+
 
   const handleSendPrompt = async (promptText: string) => {
     if (!promptText.trim() || loading) return;
@@ -271,51 +282,16 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-6 pr-2 scrollbar-thin">
-            {/* Model & Balance Selector */}
-            <div className="bg-surface-2/40 border border-border p-4 rounded-xl space-y-3">
-              <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest block">Active LLM Model</span>
-              <ModelPicker />
-              <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40 mt-1">
-                <span className="text-text-muted">🎬 Free Credits:</span>
-                <span className="text-white font-bold flex items-center gap-1.5">
-                  {credits} credits
-                  <button
-                    onClick={onWatchAdClick}
-                    className="text-accent hover:underline text-[10px] font-black tracking-wider uppercase"
-                  >
-                    + Add
-                  </button>
-                </span>
-              </div>
-            </div>
-
+          <div className="flex-1 flex flex-col justify-between overflow-hidden">
             {/* Conversation list */}
-            <div className="bg-surface-2/40 border border-border p-4 rounded-xl flex flex-col h-[280px]">
-              <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-2">Conversation Output</span>
-              <div className="flex-1 overflow-y-auto pr-1">
-                <MessageList />
-              </div>
-            </div>
-
-            {/* Payment Telemetry inspector */}
-            <div className="bg-surface-2/40 border border-border p-4 rounded-xl flex flex-col h-[220px]">
-              <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-2">x402 Telemetry log</span>
-              <div className="flex-1 overflow-y-auto text-xs pr-1">
-                <PaymentInspector />
-              </div>
-            </div>
-
-            {/* Agent keys */}
-            <div className="bg-surface-2/40 border border-border p-4 rounded-xl">
-              <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-2">Agent key authorization</span>
-              <AgentModePanel />
+            <div className="flex-1 overflow-y-auto pr-1">
+              <MessageList />
             </div>
 
             {/* Clear conversation */}
             <button
               onClick={clearChat}
-              className="w-full rounded-lg border border-border bg-surface-2/40 py-2.5 text-xs font-semibold text-text hover:border-text-muted transition-all cursor-pointer uppercase tracking-wider"
+              className="w-full mt-4 rounded-lg border border-border bg-surface-2/40 py-2.5 text-xs font-semibold text-text hover:border-text-muted transition-all cursor-pointer uppercase tracking-wider"
             >
               Clear Console Chat
             </button>
@@ -434,20 +410,16 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
               }}
             />
             
-            {/* Cost Indicator */}
-            <div className="flex items-center gap-1 bg-[#0b0b0d] border border-border px-3 py-1.5 rounded-xl font-mono text-xs text-white">
-              <span className="text-text-muted">$</span>
-              <span className="font-bold">{getModelCost(selectedModel).toFixed(2)}</span>
+            {/* Model Selector directly in the chat bar */}
+            <div className="w-40 flex-shrink-0">
+              <ModelPicker />
             </div>
 
-            {/* Settings trigger */}
-            <button
-              onClick={handleGearClick}
-              className="text-text-muted hover:text-white cursor-pointer p-1.5 transition-all"
-              title="Open Settings in Console"
-            >
-              <Settings size={18} />
-            </button>
+            {/* Cost Indicator */}
+            <div className="flex items-center gap-1 bg-[#0b0b0d] border border-border px-3 py-2 rounded-xl font-mono text-xs text-white">
+              <span className="text-text-muted">$</span>
+              <span className="font-bold">{getModelCost(selectedModel).toFixed(3)}</span>
+            </div>
 
             {/* Request Trigger */}
             <button
@@ -491,6 +463,71 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
           )}
         </div>
       </div>
+
+      {/* Bottom Right Log Button */}
+      <button
+        onClick={() => setIsLogModalOpen(true)}
+        className="fixed bottom-6 right-6 bg-[#14141a]/90 hover:bg-[#1c1c24] border border-border text-white px-4 py-2.5 rounded-xl font-bold uppercase tracking-widest text-[10px] flex items-center gap-2 shadow-2xl hover:brightness-110 active:scale-95 transition-all cursor-pointer z-40"
+      >
+        <Terminal size={14} className="text-primary animate-pulse" />
+        LOGS & TELEMETRY
+      </button>
+
+      {/* Bottom Sheet Logs Modal */}
+      <AnimatePresence>
+        {isLogModalOpen && (
+          <div 
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end justify-center"
+            onClick={() => setIsLogModalOpen(false)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="w-full max-w-4xl bg-zinc-950 border-t border-border rounded-t-3xl p-6 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col gap-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <span className="text-xs font-mono text-text-muted uppercase tracking-widest flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+                  MOLFI TELEMETRY LOGS & SETTINGS
+                </span>
+                <button
+                  onClick={() => setIsLogModalOpen(false)}
+                  className="text-text-muted hover:text-white cursor-pointer text-xs font-bold font-mono px-2 py-1 bg-white/5 rounded"
+                >
+                  ✕ CLOSE
+                </button>
+              </div>
+
+              {/* Content Grid */}
+              <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 pr-1 pb-4 scrollbar-thin">
+                {/* Payment Telemetry inspector */}
+                <div className="bg-surface-2/40 border border-border p-5 rounded-xl flex flex-col h-[380px]">
+                  <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 border-b border-border/40 pb-1">
+                    x402 Telemetry log
+                  </span>
+                  <div className="flex-1 overflow-y-auto text-xs pr-1">
+                    <PaymentInspector />
+                  </div>
+                </div>
+
+                {/* Agent keys */}
+                <div className="bg-surface-2/40 border border-border p-5 rounded-xl flex flex-col h-[380px] justify-between">
+                  <div className="flex-1 overflow-y-auto">
+                    <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 border-b border-border/40 pb-1">
+                      Agent key authorization
+                    </span>
+                    <AgentModePanel />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

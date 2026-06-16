@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { useChatStore } from '../store/chatStore';
 import { AdHost } from './ads/AdHost';
 import { AdCompleteToast } from './ads/AdCompleteToast';
+import { useTxModal } from './tx/TxModalProvider';
 
 export function AdViewer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { setJwt, setCredits } = useChatStore();
+  const { show: showTxModal } = useTxModal();
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   
@@ -14,12 +16,21 @@ export function AdViewer({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
 
   if (!isOpen) return null;
 
-  const handleComplete = (creditJwt: string) => {
+  const handleComplete = (creditJwt: string, txHash?: string) => {
     setJwt(creditJwt);
     setCredits(5); // Add credits to display
     setToastMsg('Verified attention ad watched');
     setShowToast(true);
     onClose();
+    
+    if (txHash) {
+      showTxModal({
+        hash: txHash,
+        status: 'pending',
+        network: 'avalanche-fuji',
+        label: `x402 attention settlement · impression payout`,
+      });
+    }
   };
 
   return (

@@ -1,5 +1,10 @@
-import { redirect } from 'next/navigation';
+import { AnimatedAIChat } from '../components/ui/animated-ai-chat';
 
 export default function Home() {
-  redirect('/chat');
+  return (
+    <main className="relative min-h-screen bg-[#050505] overflow-hidden">
+      <AnimatedAIChat />
+    </main>
+  );
 }
+

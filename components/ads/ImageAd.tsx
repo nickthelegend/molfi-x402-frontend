@@ -9,7 +9,7 @@ interface ImageAdProps {
   dwellMs: number;
   ctaUrl: string;
   apiBase: string;
-  onComplete: (creditJwt: string) => void;
+  onComplete: (creditJwt: string, txHash?: string) => void;
   onError: (e: Error) => void;
 }
 
@@ -83,8 +83,8 @@ export function ImageAd(p: ImageAdProps) {
             const errData = await res.json();
             throw new Error(errData.error || 'Claim failed');
           }
-          const { creditJwt } = await res.json();
-          p.onComplete(creditJwt);
+          const { creditJwt, txHash } = await res.json();
+          p.onComplete(creditJwt, txHash);
         } catch (e) {
           p.onError(e as Error);
         } finally {
