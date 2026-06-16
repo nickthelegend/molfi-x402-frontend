@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 export interface Message {
   id: string;
@@ -22,6 +23,10 @@ interface ChatState {
   jwt: string | null;
   selectedModel: string;
   agentMode: boolean;
+  agentPrivateKey: string | null;
+  agentAddress: string | null;
+  agentSpendLimit: number;
+  agentSpent: number;
   inspectorData: InspectorData | null;
   addMessage: (msg: Omit<Message, 'id'>) => string;
   updateMessageContent: (id: string, chunk: string) => void;
@@ -30,16 +35,23 @@ interface ChatState {
   setJwt: (jwt: string | null) => void;
   setSelectedModel: (model: string) => void;
   setAgentMode: (mode: boolean) => void;
+  initializeAgentWallet: () => { address: string; privateKey: string };
+  incrementAgentSpent: (amount: number) => void;
+  setAgentSpendLimit: (limit: number) => void;
   setInspectorData: (data: InspectorData | null) => void;
   clearChat: () => void;
 }
 
-export const useChatStore = create<ChatState>((set) => ({
+export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   credits: 0,
   jwt: typeof window !== 'undefined' ? localStorage.getItem('molfi_jwt') : null,
   selectedModel: 'llama-3.3-70b',
   agentMode: false,
+  agentPrivateKey: typeof window !== 'undefined' ? localStorage.getItem('molfi_agent_pkey') : null,
+  agentAddress: typeof window !== 'undefined' ? localStorage.getItem('molfi_agent_address') : null,
+  agentSpendLimit: 1.00,
+  agentSpent: 0.00,
   inspectorData: null,
 
   addMessage: (msg) => {
@@ -65,7 +77,7 @@ export const useChatStore = create<ChatState>((set) => ({
   },
 
   setCredits: (credits) => set({ credits }),
-  
+
   setJwt: (jwt) => {
     if (jwt) {
       localStorage.setItem('molfi_jwt', jwt);
@@ -76,8 +88,28 @@ export const useChatStore = create<ChatState>((set) => ({
   },
 
   setSelectedModel: (selectedModel) => set({ selectedModel }),
-  setAgentMode: (agentMode) => set({ agentMode }),
-  setInspectorData: (inspectorData) => set({ inspectorData }),
   
+  setAgentMode: (agentMode) => {
+    if (agentMode && !get().agentPrivateKey) {
+      get().initializeAgentWallet();
+    }
+    set({ agentMode });
+  },
+
+  initializeAgentWallet: () => {
+    const pkey = generatePrivateKey();
+    const account = privateKeyToAccount(pkey);
+    localStorage.setItem('molfi_agent_pkey', pkey);
+    localStorage.setItem('molfi_agent_address', account.address);
+    set({ agentPrivateKey: pkey, agentAddress: account.address, agentSpent: 0.00 });
+    return { address: account.address, privateKey: pkey };
+  },
+
+  incrementAgentSpent: (amount) => set((state) => ({ agentSpent: state.agentSpent + amount })),
+  
+  setAgentSpendLimit: (agentSpendLimit) => set({ agentSpendLimit }),
+
+  setInspectorData: (inspectorData) => set({ inspectorData }),
+
   clearChat: () => set({ messages: [], inspectorData: null }),
 }));

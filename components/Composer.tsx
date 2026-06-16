@@ -1,10 +1,29 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useWalletClient, useAccount } from 'wagmi';
 import { useChatStore } from '../store/chatStore';
+import { requestCompletionsWithPay } from '../lib/x402-client';
 
 export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
-  const { messages, selectedModel, jwt, credits, addMessage, updateMessageContent, updateMessageMetadata, setCredits } = useChatStore();
+  const {
+    messages,
+    selectedModel,
+    jwt,
+    credits,
+    agentMode,
+    agentPrivateKey,
+    addMessage,
+    updateMessageContent,
+    updateMessageMetadata,
+    setCredits,
+    setInspectorData,
+    incrementAgentSpent,
+  } = useChatStore();
+
+  const { data: walletClient } = useWalletClient();
+  const { address } = useAccount();
+
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,36 +37,33 @@ export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
     setInput('');
     setLoading(true);
 
-    // 1. Add User Message to Store
-    addMessage({ role: 'user', content: userPrompt });
-
-    // 2. Add empty Assistant Message to Store to begin streaming
     const assistantMsgId = addMessage({ role: 'assistant', content: '' });
+    addMessage({ role: 'user', content: userPrompt });
 
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8787';
 
     try {
-      // Structure chat context
       const chatMessages = messages
         .map((m) => ({ role: m.role, content: m.content }))
         .concat({ role: 'user', content: userPrompt });
 
-      // Determine authorization headers
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      if (jwt) {
-        headers['Authorization'] = `Bearer ${jwt}`;
-      }
-
-      const res = await fetch(`${backendUrl}/v1/chat/completions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: chatMessages,
-        }),
+      const res = await requestCompletionsWithPay({
+        model: selectedModel,
+        messages: chatMessages,
+        walletClient,
+        userAddress: address,
+        jwt,
+        agentMode,
+        agentPrivateKey,
+        onPaymentCaptured: (data) => {
+          setInspectorData(data);
+          if (data.decodedXPaymentResponse?.success) {
+            // Estimate cents based on signature value field
+            const valueRaw = data.decodedXPayment?.payload?.authorization?.value || '0';
+            const costUsdc = parseFloat(valueRaw) / 1000000;
+            incrementAgentSpent(costUsdc);
+          }
+        },
       });
 
       if (!res.ok) {
@@ -81,35 +97,32 @@ export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
 
             try {
               const parsed = JSON.parse(rawData);
-              
+
               if (parsed.molfiMetadata) {
-                // Settle final transaction metadata
                 updateMessageMetadata(assistantMsgId, {
                   paidVia: parsed.molfiMetadata.paidVia,
                   txHash: parsed.molfiMetadata.txHash,
                 });
               } else if (parsed.choices?.[0]?.delta?.content) {
-                // Update assistant content chunk
                 updateMessageContent(assistantMsgId, parsed.choices[0].delta.content);
               }
             } catch (err) {
-              // Ignore metadata framing JSON parse errors
+              // ignore json parse errors on custom chunks
             }
           }
         }
       }
 
-      // Refresh credits balance in store after message
+      // Refresh credits balance if auth JWT exists
       if (jwt) {
         const balRes = await fetch(`${backendUrl}/v1/credits/balance`, {
           headers: { Authorization: `Bearer ${jwt}` },
         });
         if (balRes.ok) {
-          const balData = await balRes.json() as { credits: number };
+          const balData = (await balRes.json()) as { credits: number };
           setCredits(balData.credits);
         }
       }
-
     } catch (err) {
       console.error(err);
       setError((err as Error).message);
@@ -118,6 +131,8 @@ export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
       setLoading(false);
     }
   };
+
+  const canSend = input.trim() && (jwt || address || (agentMode && agentPrivateKey));
 
   return (
     <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-bg via-bg to-transparent">
@@ -128,13 +143,20 @@ export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
           </div>
         )}
 
-        <form onSubmit={handleSend} className="relative flex items-end gap-2 rounded-xl border border-border bg-surface p-2 shadow-lg focus-within:border-accent transition-all">
+        <form
+          onSubmit={handleSend}
+          className="relative flex items-end gap-2 rounded-xl border border-border bg-surface p-2 shadow-lg focus-within:border-accent transition-all"
+        >
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={jwt ? "Type your prompt here..." : "Watch an ad to get credits, or connect wallet."}
+            placeholder={
+              canSend
+                ? 'Type your prompt here...'
+                : 'Watch an ad for credits, connect wallet, or enable Agent Mode.'
+            }
             rows={1}
-            disabled={loading || !jwt}
+            disabled={loading || !canSend}
             className="flex-1 max-h-40 overflow-y-auto bg-transparent border-0 outline-none text-sm text-text px-2 py-1.5 resize-none disabled:opacity-50"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -148,20 +170,18 @@ export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
             {/* Credits Counter & Ad Button */}
             <div className="flex items-center gap-1.5 text-xs border border-border bg-surface-2 rounded-lg px-2.5 py-1.5">
               <span className="text-text-muted">🎬 {credits} credits</span>
-              {credits < 2 && (
-                <button
-                  type="button"
-                  onClick={onWatchAdClick}
-                  className="text-accent font-semibold hover:text-accent-2 transition-all ml-1"
-                >
-                  + Add Free
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={onWatchAdClick}
+                className="text-accent font-semibold hover:text-accent-2 transition-all ml-1 cursor-pointer"
+              >
+                + Add Free
+              </button>
             </div>
 
             <button
               type="submit"
-              disabled={loading || !input.trim() || !jwt}
+              disabled={loading || !canSend}
               className="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-white hover:bg-accent/90 disabled:opacity-50 transition-all cursor-pointer"
             >
               {loading ? '...' : 'Send'}

@@ -7,6 +7,7 @@ import { ModelPicker } from './ModelPicker';
 import { MessageList } from './MessageList';
 import { Composer } from './Composer';
 import { PaymentInspector } from './PaymentInspector';
+import { AgentModePanel } from './AgentModePanel';
 
 export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   const { clearChat } = useChatStore();
@@ -48,6 +49,9 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
               <ConnectButton showBalance={true} chainStatus="icon" />
             </div>
           </div>
+
+          {/* Agent Mode Panel */}
+          <AgentModePanel />
 
           <div className="mt-auto flex flex-col gap-2">
             <button
