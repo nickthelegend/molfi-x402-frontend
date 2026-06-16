@@ -8,7 +8,7 @@ import { useChatStore } from '../store/chatStore';
 import { requestCompletionsWithPay } from '../lib/x402-client';
 import { useTxModal } from './tx/TxModalProvider';
 import { ModelPicker } from './ModelPicker';
-import { MessageList } from './MessageList';
+import { MessageBubble } from './MessageBubble';
 import { AgentModePanel } from './AgentModePanel';
 import { PaymentInspector } from './PaymentInspector';
 import { useSearchParams } from 'next/navigation';
@@ -126,6 +126,14 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Auto scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   useEffect(() => {
     setMounted(true);
@@ -290,16 +298,30 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
             </button>
           </div>
 
-          <div className="flex-1 flex flex-col justify-between overflow-hidden">
-            {/* Conversation list */}
-            <div className="flex-1 overflow-y-auto pr-1">
-              <MessageList />
+          <div className="flex-1 flex flex-col justify-between overflow-hidden gap-4">
+            {/* Dev Controls */}
+            <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
+              <div className="bg-[#14141a]/40 border border-border p-4 rounded-xl">
+                <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-2 border-b border-border/40 pb-1">
+                  Agent Auth Key
+                </span>
+                <AgentModePanel />
+              </div>
+              
+              <div className="bg-[#14141a]/40 border border-border p-4 rounded-xl flex-1 flex flex-col min-h-[200px]">
+                <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-2 border-b border-border/40 pb-1">
+                  x402 Telemetry log
+                </span>
+                <div className="flex-1 overflow-y-auto text-xs">
+                  <PaymentInspector />
+                </div>
+              </div>
             </div>
 
             {/* Clear conversation */}
             <button
               onClick={clearChat}
-              className="w-full mt-4 rounded-lg border border-border bg-surface-2/40 py-2.5 text-xs font-semibold text-text hover:border-text-muted transition-all cursor-pointer uppercase tracking-wider"
+              className="w-full rounded-lg border border-border bg-surface-2/40 py-2.5 text-xs font-semibold text-text hover:border-text-muted transition-all cursor-pointer uppercase tracking-wider"
             >
               Clear Console Chat
             </button>
@@ -314,17 +336,17 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
           className="fixed left-0 top-1/2 -translate-y-1/2 bg-primary text-black border-r border-y border-outline-variant/20 rounded-r-2xl py-6 px-3 flex flex-col items-center gap-3 cursor-pointer shadow-2xl hover:brightness-110 transition-all z-40"
         >
           <span className="text-[9px] font-black uppercase tracking-[0.25em] select-none text-center" style={{ writingMode: 'vertical-rl' }}>
-            Chats
+            Console
           </span>
           <Terminal size={14} className="text-black" />
         </button>
       )}
 
-      {/* 2. Main Hero Panel */}
+      {/* 2. Main Chat Panel */}
       <div className="flex-1 flex flex-col overflow-hidden relative dot-grid">
         {/* Top Header Bar */}
-        <header className="w-full flex justify-center px-4 md:px-8 py-6 z-20">
-          <div className="w-full h-16 bg-[#0e0e0e] rounded-2xl flex items-center justify-between px-8 shadow-2xl">
+        <header className="w-full flex justify-center px-4 md:px-8 py-4 z-20 flex-shrink-0">
+          <div className="w-full h-16 bg-[#0e0e0e]/85 backdrop-blur border border-border/40 rounded-2xl flex items-center justify-between px-8 shadow-2xl">
             {/* Logo Section */}
             <a href="https://molfi.fun" className="flex items-center gap-3 group">
               <div className="relative w-8 h-8 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
@@ -355,7 +377,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
               <button
                 onClick={() => setConsoleOpen(!consoleOpen)}
                 className="text-text-muted hover:text-white cursor-pointer p-1.5 rounded hover:bg-surface-2/40 transition-all"
-                title="Toggle Console View"
+                title="Toggle Developer Console"
               >
                 <Monitor size={18} />
               </button>
@@ -377,60 +399,146 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
           </div>
         </header>
 
-        {/* Hero Interactive Workspace */}
-        <div className="flex-1 flex flex-col items-center justify-center px-4 relative z-10">
-          {/* Logo Name */}
-          <h1
-            className="text-7xl md:text-[8rem] font-black tracking-[-0.04em] mb-12 font-display text-center uppercase"
-            style={{
-              background: 'linear-gradient(135deg, #ffffff 0%, #c899ff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            Molfi
-          </h1>
+        {/* Message Container Area */}
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto w-full relative z-10 scrollbar-thin">
+          <div className="max-w-3xl mx-auto px-4 py-8 flex flex-col min-h-full justify-between">
+            {messages.length === 0 ? (
+              // Welcome Screen
+              <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
+                <h1
+                  className="text-6xl md:text-[6.5rem] font-black tracking-[-0.04em] mb-4 font-display text-center uppercase"
+                  style={{
+                    background: 'linear-gradient(135deg, #ffffff 0%, #c899ff 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
+                  Molfi
+                </h1>
+                <p className="text-sm text-text-muted max-w-md mb-8">
+                  A premium multi-model AI assistant powered by agentic stablecoin streams on Avalanche Fuji.
+                </p>
 
-          {/* Toggle Switches */}
-          <div className="flex items-center bg-[#14141a]/60 border border-border p-1.5 rounded-2xl mb-8">
-            <button
-              onClick={() => {
-                setActiveTab('human');
-                setAgentMode(false);
-              }}
-              className={`px-6 py-2.5 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer ${
-                activeTab === 'human'
-                  ? 'bg-primary text-black font-black primary-glow'
-                  : 'text-text-muted hover:text-white'
-              }`}
-            >
-              I'M A HUMAN
-            </button>
-            <button
-              data-testid="agent-mode-toggle"
-              onClick={() => {
-                setActiveTab('agent');
-                setAgentMode(true);
-              }}
-              className={`px-6 py-2.5 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer ${
-                activeTab === 'agent'
-                  ? 'bg-primary text-black font-black primary-glow'
-                  : 'text-text-muted hover:text-white'
-              }`}
-            >
-              I'M AN AGENT
-            </button>
+                {/* Human / Agent Toggle Switches */}
+                <div className="flex items-center bg-[#14141a]/60 border border-border p-1.5 rounded-2xl mb-8">
+                  <button
+                    onClick={() => {
+                      setActiveTab('human');
+                      setAgentMode(false);
+                    }}
+                    className={`px-6 py-2.5 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer ${
+                      activeTab === 'human'
+                        ? 'bg-primary text-black font-black primary-glow'
+                        : 'text-text-muted hover:text-white'
+                    }`}
+                  >
+                    I'M A HUMAN
+                  </button>
+                  <button
+                    data-testid="agent-mode-toggle"
+                    onClick={() => {
+                      setActiveTab('agent');
+                      setAgentMode(true);
+                    }}
+                    className={`px-6 py-2.5 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer ${
+                      activeTab === 'agent'
+                        ? 'bg-primary text-black font-black primary-glow'
+                        : 'text-text-muted hover:text-white'
+                    }`}
+                  >
+                    I'M AN AGENT
+                  </button>
+                </div>
+
+                {/* Info Card Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl w-full mb-8 text-left">
+                  <div className="rounded-2xl border border-border bg-surface-2/20 p-5 backdrop-blur-sm">
+                    <div className="text-lg mb-2">🎬 <span className="font-bold text-white uppercase tracking-wider text-xs ml-1">Human Rail</span></div>
+                    <p className="text-xs text-text-muted leading-relaxed">
+                      Watch short sponsor advertisements to earn free message credits. Perfect for manual testing and chat play.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-surface-2/20 p-5 backdrop-blur-sm">
+                    <div className="text-lg mb-2">💸 <span className="font-bold text-white uppercase tracking-wider text-xs ml-1">Agent Rail</span></div>
+                    <p className="text-xs text-text-muted leading-relaxed">
+                      Pay exact micro-cents autonomously in Fuji USDC per prompt. Connect a programmatic agent key for machine-to-machine tasks.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Trending Operations */}
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-text-dim mr-2">Trending Operations:</span>
+                  {[
+                    { label: 'VIRAL TWEET THREAD', prompt: 'Write a viral Twitter thread about x402 payments and how agents pay with USDC on Avalanche Fuji.' },
+                    { label: 'SMART CONTRACT AUDIT', prompt: 'Perform a security audit on the ImpressionRegistry solidity contract for batch verification.' },
+                    { label: 'MARKET ANALYSIS', prompt: 'Analyze the current stablecoin market volume and AVAX Fuji gas prices.' },
+                    { label: 'AI AGENT SETUP', prompt: 'Explain how to set up an automated AI agent script using the EIP-3009 payment headers.' }
+                  ].map((op) => (
+                    <button
+                      key={op.label}
+                      onClick={() => setPromptValue(op.prompt)}
+                      className="bg-[#14141a]/40 border border-border/60 hover:border-primary/40 text-[9px] font-bold text-text-muted hover:text-white px-4 py-2 rounded-xl transition-all cursor-pointer uppercase tracking-wider"
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              // Chat Messages list
+              <div className="flex-1 flex flex-col gap-6 pb-24">
+                {messages.map((message) => (
+                  <MessageBubble key={message.id} message={message} />
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
           </div>
+        </div>
 
+        {/* Bottom Input Area */}
+        <div className="w-full max-w-3xl mx-auto px-4 pb-6 pt-2 bg-gradient-to-t from-[#050505] via-[#050505] to-transparent z-20 flex-shrink-0">
           {/* Agent Address display for E2E tests */}
           {activeTab === 'agent' && agentAddress && (
-            <div data-testid="agent-address-display" className="text-xs font-mono text-primary mb-8 bg-[#14141a]/40 border border-border/60 px-4 py-2 rounded-xl">
+            <div data-testid="agent-address-display" className="text-xs font-mono text-primary mb-3 bg-[#14141a]/40 border border-border/60 px-4 py-2 rounded-xl text-center">
               Agent Wallet: {agentAddress}
             </div>
           )}
 
+          {/* Mode Switch Indicator (visible when messages exist to let users toggle/see status) */}
+          {messages.length > 0 && (
+            <div className="flex justify-center mb-3">
+              <div className="flex items-center bg-[#14141a]/80 border border-border/60 p-1 rounded-xl text-[9px]">
+                <button
+                  onClick={() => {
+                    setActiveTab('human');
+                    setAgentMode(false);
+                  }}
+                  className={`px-3 py-1 rounded-lg font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    activeTab === 'human' ? 'bg-primary text-black' : 'text-text-muted hover:text-white'
+                  }`}
+                >
+                  Human
+                </button>
+                <button
+                  data-testid="agent-mode-toggle"
+                  onClick={() => {
+                    setActiveTab('agent');
+                    setAgentMode(true);
+                  }}
+                  className={`px-3 py-1 rounded-lg font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    activeTab === 'agent' ? 'bg-primary text-black' : 'text-text-muted hover:text-white'
+                  }`}
+                >
+                  Agent
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Input Console Bar */}
-          <div className="w-full max-w-3xl bg-[#14141a]/80 border border-border rounded-3xl p-3 flex items-center gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.5)] focus-within:border-primary transition-all">
+          <div className="w-full bg-[#14141a]/85 backdrop-blur-md border border-border rounded-2xl p-3 flex items-center gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.5)] focus-within:border-primary transition-all">
             <span className="text-on-surface-variant font-mono text-sm ml-2">&gt;_</span>
             <textarea
               placeholder={
@@ -465,7 +573,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
               data-testid="send-message-button"
               onClick={handleRequestClick}
               disabled={loading}
-              className="bg-primary text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 primary-glow hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              className="bg-primary text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 primary-glow hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
             >
               {loading ? (
                 <span className="animate-spin h-3 w-3 border-2 border-black border-t-transparent rounded-full" />
@@ -476,28 +584,9 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
             </button>
           </div>
 
-          {/* Trending Operations */}
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
-            <span className="text-[9px] font-black uppercase tracking-widest text-text-dim mr-2">Trending Operations:</span>
-            {[
-              { label: 'VIRAL TWEET THREAD', prompt: 'Write a viral Twitter thread about x402 payments and how agents pay with USDC on Avalanche Fuji.' },
-              { label: 'SMART CONTRACT AUDIT', prompt: 'Perform a security audit on the ImpressionRegistry solidity contract for batch verification.' },
-              { label: 'MARKET ANALYSIS', prompt: 'Analyze the current stablecoin market volume and AVAX Fuji gas prices.' },
-              { label: 'AI AGENT SETUP', prompt: 'Explain how to set up an automated AI agent script using the EIP-3009 payment headers.' }
-            ].map((op) => (
-              <button
-                key={op.label}
-                onClick={() => setPromptValue(op.prompt)}
-                className="bg-[#14141a]/40 border border-border/60 hover:border-primary/40 text-[9px] font-bold text-text-muted hover:text-white px-4 py-2 rounded-xl transition-all cursor-pointer uppercase tracking-wider"
-              >
-                {op.label}
-              </button>
-            ))}
-          </div>
-
           {/* Error Message Box */}
           {error && (
-            <div className="w-full max-w-3xl mt-4 text-xs text-accent rounded-xl border border-accent/20 bg-accent/5 p-4 text-center">
+            <div className="w-full mt-3 text-xs text-accent rounded-xl border border-accent/25 bg-accent/5 p-3 text-center">
               {error}
             </div>
           )}
