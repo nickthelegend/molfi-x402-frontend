@@ -326,7 +326,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
         <header className="w-full flex justify-center px-4 md:px-8 py-6 z-20">
           <div className="w-full h-16 bg-[#0e0e0e] rounded-2xl flex items-center justify-between px-8 shadow-2xl">
             {/* Logo Section */}
-            <a href="http://localhost:3001" className="flex items-center gap-3 group">
+            <a href="https://molfi.fun" className="flex items-center gap-3 group">
               <div className="relative w-8 h-8 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
                 <img 
                   src="/logo.png" 
