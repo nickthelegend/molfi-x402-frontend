@@ -325,7 +325,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
           className="fixed left-0 top-1/2 -translate-y-1/2 bg-primary text-black border-r border-y border-outline-variant/20 rounded-r-2xl py-6 px-3 flex flex-col items-center gap-3 cursor-pointer shadow-2xl hover:brightness-110 transition-all z-40"
         >
           <span className="text-[9px] font-black uppercase tracking-[0.25em] select-none text-center" style={{ writingMode: 'vertical-rl' }}>
-            Open Console
+            Chats
           </span>
           <Terminal size={14} className="text-black" />
         </button>
@@ -337,61 +337,16 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
         <header className="w-full flex justify-center px-4 md:px-8 py-6 z-20">
           <div className="w-full h-16 bg-[#0e0e0e] rounded-2xl flex items-center justify-between px-8 shadow-2xl">
             {/* Logo Section */}
-            <div className="flex items-center gap-12">
-              <a href="http://localhost:3001" className="flex items-center gap-3 group">
-                <div className="relative w-8 h-8 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
-                  <img 
-                    src="/logo.png" 
-                    alt="Molfi Logo" 
-                    className="w-8 h-8 object-contain"
-                  />
-                </div>
-                <span className="text-xl font-black tracking-tighter text-white uppercase font-headline">Molfi</span>
-              </a>
-
-              {/* Desktop Navigation */}
-              <div className="hidden lg:flex items-center gap-8">
-                <NavDropdown 
-                  label="Products" 
-                  isOpen={openDropdown === 'products'} 
-                  onToggle={() => toggleDropdown(openDropdown === 'products' ? null : 'products')}
-                >
-                  <DropdownItem href="http://localhost:3001/molfi-extension-1.0.0.vsix" download={true} icon={Monitor} title="Extension" desc="Smart browser companion" />
-                  <DropdownItem href="#" icon={Smartphone} title="Mobile App" desc="Trade on the go (Soon)" />
-                  <DropdownItem href="/chat" icon={Wallet} title="Agentic Wallet" desc="Autonomous automation" />
-                </NavDropdown>
-
-                <NavDropdown 
-                  label="Resources" 
-                  isOpen={openDropdown === 'resources'} 
-                  onToggle={() => toggleDropdown(openDropdown === 'resources' ? null : 'resources')}
-                >
-                  <DropdownItem href="/chat" icon={BookOpen} title="Docs" desc="Integration guides" />
-                  <DropdownItem href="#" icon={Shield} title="Security" desc="Audits and safety" />
-                  <DropdownItem href="https://github.com/nickthelegend/speedrun" icon={Globe} title="Ecosystem" desc="Built on Avalanche Fuji" />
-                </NavDropdown>
-
-                <div className="relative" onMouseEnter={() => toggleDropdown('token')} onMouseLeave={() => toggleDropdown(null)}>
-                  <div className={`px-4 py-2 rounded-lg border transition-all flex items-center gap-2 cursor-pointer ${openDropdown === 'token' ? 'bg-surface-container border-primary/20' : 'bg-surface-container border-outline-variant/10'}`}>
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-primary">$MOLFI</span>
-                    <ChevronDown size={12} className={`text-on-surface-variant transition-transform duration-300 ${openDropdown === 'token' ? 'rotate-180' : ''}`} />
-                  </div>
-                  
-                  {openDropdown === 'token' && (
-                    <div className="absolute top-full right-0 mt-4 w-48 bg-[#1f1f1f] rounded-2xl shadow-2xl p-3 overflow-hidden z-[60] transition-all duration-200">
-                      <div className="flex flex-col gap-1">
-                        <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-all text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white">
-                          <Twitter size={14} className="text-primary" /> Twitter
-                        </a>
-                        <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-all text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white">
-                          <MessageCircle size={14} className="text-primary" /> Telegram
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                </div>
+            <a href="http://localhost:3001" className="flex items-center gap-3 group">
+              <div className="relative w-8 h-8 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                <img 
+                  src="/logo.png" 
+                  alt="Molfi Logo" 
+                  className="w-8 h-8 object-contain"
+                />
               </div>
-            </div>
+              <span className="text-xl font-black tracking-tighter text-white uppercase font-headline">Molfi</span>
+            </a>
 
             {/* Action controls + Connect Wallet */}
             <div className="flex items-center gap-4">
@@ -411,104 +366,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
               </button>
 
               {/* RainbowKit Connected Wallet Button */}
-              <ConnectButton.Custom>
-                {({
-                  account,
-                  chain,
-                  openAccountModal,
-                  openChainModal,
-                  openConnectModal,
-                  authenticationStatus,
-                  mounted,
-                }) => {
-                  const ready = mounted && authenticationStatus !== 'loading';
-                  const connected =
-                    ready &&
-                    account &&
-                    chain &&
-                    (!authenticationStatus ||
-                      authenticationStatus === 'authenticated');
-
-                  return (
-                    <div
-                      {...(!ready && {
-                        'aria-hidden': true,
-                        'style': {
-                          opacity: 0,
-                          pointerEvents: 'none',
-                          userSelect: 'none',
-                        },
-                      })}
-                    >
-                      {(() => {
-                        if (!connected) {
-                          return (
-                            <button
-                              onClick={openConnectModal}
-                              type="button"
-                              className="bg-primary text-black px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[11px] primary-glow hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-                            >
-                              Connect Wallet
-                            </button>
-                          );
-                        }
-
-                        if (chain.unsupported) {
-                          return (
-                            <button
-                              onClick={openChainModal}
-                              type="button"
-                              className="bg-red-500 text-white px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[11px] hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-                            >
-                              Wrong Network
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={openChainModal}
-                              type="button"
-                              className="hidden md:flex items-center gap-1.5 bg-[#191919] border border-outline-variant/10 px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer hover:bg-white/5 transition-all"
-                            >
-                              {chain.hasIcon && (
-                                <div
-                                  style={{
-                                    background: chain.iconBackground,
-                                    width: 12,
-                                    height: 12,
-                                    borderRadius: 999,
-                                    overflow: 'hidden',
-                                    marginRight: 4,
-                                  }}
-                                >
-                                  {chain.iconUrl && (
-                                    <img
-                                      alt={chain.name ?? 'Chain icon'}
-                                      src={chain.iconUrl}
-                                      style={{ width: 12, height: 12 }}
-                                    />
-                                  )}
-                                </div>
-                              )}
-                              {chain.name}
-                            </button>
-
-                            <button
-                              onClick={openAccountModal}
-                              type="button"
-                              className="bg-primary text-black px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[11px] primary-glow hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-                            >
-                              {account.displayName}
-                            </button>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  );
-                }}
-              </ConnectButton.Custom>
+              <ConnectButton />
             </div>
           </div>
         </header>
