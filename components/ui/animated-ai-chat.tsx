@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as React from "react"
-import { AI_Prompt } from "./animated-ai-input";
 
 interface UseAutoResizeTextareaProps {
     minHeight: number;
@@ -367,13 +366,123 @@ export function AnimatedAIChat() {
                             )}
                         </AnimatePresence>
 
-                        <AI_Prompt
-                            value={value}
-                            onChange={setValue}
-                            onSend={handleSendMessage}
-                            placeholder="Ask Molfi a question..."
-                            className="w-full"
-                        />
+                        <div className="p-4">
+                            <Textarea
+                                ref={textareaRef}
+                                value={value}
+                                onChange={(e) => {
+                                    setValue(e.target.value);
+                                    adjustHeight();
+                                }}
+                                onKeyDown={handleKeyDown}
+                                onFocus={() => setInputFocused(true)}
+                                onBlur={() => setInputFocused(false)}
+                                placeholder="Ask Molfi a question..."
+                                containerClassName="w-full"
+                                className={cn(
+                                    "w-full px-4 py-3",
+                                    "resize-none",
+                                    "bg-transparent",
+                                    "border-none",
+                                    "text-white/90 text-sm",
+                                    "focus:outline-none",
+                                    "placeholder:text-white/20",
+                                    "min-h-[60px]"
+                                )}
+                                style={{
+                                    overflow: "hidden",
+                                }}
+                                showRing={false}
+                            />
+                        </div>
+
+                        <AnimatePresence>
+                            {attachments.length > 0 && (
+                                <motion.div 
+                                    className="px-4 pb-3 flex gap-2 flex-wrap"
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                >
+                                    {attachments.map((file, index) => (
+                                        <motion.div
+                                            key={index}
+                                            className="flex items-center gap-2 text-xs bg-white/[0.03] py-1.5 px-3 rounded-lg text-white/70"
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.9 }}
+                                        >
+                                            <span>{file}</span>
+                                            <button 
+                                                onClick={() => removeAttachment(index)}
+                                                className="text-white/40 hover:text-white transition-colors"
+                                            >
+                                                <XIcon className="w-3 h-3" />
+                                            </button>
+                                        </motion.div>
+                                    ))}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <div className="p-4 border-t border-white/[0.05] flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <motion.button
+                                    type="button"
+                                    onClick={handleAttachFile}
+                                    whileTap={{ scale: 0.94 }}
+                                    className="p-2 text-white/40 hover:text-white/90 rounded-lg transition-colors relative group"
+                                >
+                                    <Paperclip className="w-4 h-4" />
+                                    <motion.span
+                                        className="absolute inset-0 bg-white/[0.05] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                        layoutId="button-highlight"
+                                    />
+                                </motion.button>
+                                <motion.button
+                                    type="button"
+                                    data-command-button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowCommandPalette(prev => !prev);
+                                    }}
+                                    whileTap={{ scale: 0.94 }}
+                                    className={cn(
+                                        "p-2 text-white/40 hover:text-white/90 rounded-lg transition-colors relative group",
+                                        showCommandPalette && "bg-white/10 text-white/90"
+                                    )}
+                                >
+                                    <Command className="w-4 h-4" />
+                                    <motion.span
+                                        className="absolute inset-0 bg-white/[0.05] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                        layoutId="button-highlight"
+                                    />
+                                </motion.button>
+                            </div>
+                            
+                            <motion.button
+                                type="button"
+                                data-testid="send-message-button"
+                                onClick={handleSendMessage}
+                                whileHover={{ scale: 1.01 }}
+                                whileTap={{ scale: 0.98 }}
+                                disabled={isTyping || !value.trim()}
+                                className={cn(
+                                    "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                                    "flex items-center gap-2",
+                                    value.trim()
+                                        ? "bg-white text-[#0A0A0B] shadow-lg shadow-white/10"
+                                        : "bg-white/[0.05] text-white/40"
+                                )}
+                            >
+                                {isTyping ? (
+                                    <LoaderIcon className="w-4 h-4 animate-[spin_2s_linear_infinite]" />
+                                ) : (
+                                    <SendIcon className="w-4 h-4" />
+                                )}
+                                <span>Send</span>
+                            </motion.button>
+                        </div>
                     </motion.div>
 
                     <div className="flex flex-wrap items-center justify-center gap-2">
