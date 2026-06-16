@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { VideoAd } from './VideoAd';
 import { ImageAd } from './ImageAd';
 import { AdSkeleton } from './AdSkeleton';
 import { useAdRequest } from './useAdRequest';
@@ -91,9 +90,7 @@ export function AdHost({ slotId, surface, apiBase, onCredit }: AdHostProps) {
     onError: (e: Error) => setError(e.message),
   };
 
-  return slot.type === 'video' ? (
-    <VideoAd {...commonProps} mp4Url={slot.mp4Url} durationMs={slot.durationMs} />
-  ) : (
+  return slot.type === 'video' ? null : (
     <ImageAd {...commonProps} imageUrl={slot.imageUrl} dwellMs={slot.durationMs} />
   );
 }

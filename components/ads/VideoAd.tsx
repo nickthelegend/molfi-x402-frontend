@@ -1,136 +1,184 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useAdHeartbeat } from './useHeartbeat';
+import { useAdSession } from '../../hooks/useAdSession';
 
-interface VideoAdProps {
-  impressionToken: string;
-  mp4Url: string;
-  durationMs: number;
-  ctaUrl: string;
-  apiBase: string;
-  onComplete: (creditJwt: string, txHash?: string) => void;
-  onError: (e: Error) => void;
-}
-
-export function VideoAd(p: VideoAdProps) {
+export function VideoAd({
+  jwt,
+  setJwt,
+  onClose,
+  onClaimed,
+}: {
+  jwt: string | null;
+  setJwt: (jwt: string | null) => void;
+  onClose: () => void;
+  onClaimed: (info: any) => void;
+}) {
+  const { session, start, beat, finalize, heartbeatIntervalMs } = useAdSession(jwt, setJwt);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [startedAt] = useState(() => Date.now());
-  const [loadingClaim, setLoadingClaim] = useState(false);
-  const lastEvidence = useRef({ videoCurrentTimeMs: 0, videoPaused: false, videoMuted: false });
+  const [error, setError] = useState<string | null>(null);
+  const [ended, setEnded] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  useAdHeartbeat({
-    impressionToken: p.impressionToken,
-    startedAt,
-    intervalMs: 500,
-    apiBase: p.apiBase,
-    evidenceProvider: () => lastEvidence.current,
-    onError: p.onError,
-  });
-
-  const triggerClaim = async () => {
-    if (loadingClaim) return;
-    setLoadingClaim(true);
-    try {
-      const watchedMs = Date.now() - startedAt;
-      const res = await fetch(`${p.apiBase}/v1/ads/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          impressionToken: p.impressionToken,
-          watchedMs,
-          lastSeq: -1,
-        }),
+  // Initialize session
+  useEffect(() => {
+    setLoading(true);
+    start({ surface: 'chat-web', kind: 'video' })
+      .then((s) => {
+        if (!s) {
+          setError('No active campaigns matching targeting criteria.');
+        }
+      })
+      .catch((e) => {
+        setError(e.message || 'Failed to initialize ad session');
+      })
+      .finally(() => {
+        setLoading(false);
       });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Claim verification failed');
-      }
-      const { creditJwt, txHash } = await res.json();
-      p.onComplete(creditJwt, txHash);
-    } catch (e) {
-      p.onError(e as Error);
-    } finally {
-      setLoadingClaim(false);
-    }
-  };
+  }, [start]);
 
+  // Periodic heartbeat loop
+  useEffect(() => {
+    if (!session) return;
+    const id = setInterval(() => beat(videoRef.current), heartbeatIntervalMs);
+    return () => clearInterval(id);
+  }, [session, beat, heartbeatIntervalMs]);
+
+  // Restrict skip vectors: block contextmenu, fast-forward, and ratechange
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
 
-    const onTime = () => {
-      lastEvidence.current.videoCurrentTimeMs = v.currentTime * 1000;
-    };
-    const onPause = () => {
-      lastEvidence.current.videoPaused = true;
-    };
-    const onPlay = () => {
-      lastEvidence.current.videoPaused = false;
-    };
-    const onMute = () => {
-      lastEvidence.current.videoMuted = v.muted;
-    };
-    const onEnded = () => {
-      triggerClaim();
+    v.disablePictureInPicture = true;
+    
+    const onCtx = (e: Event) => e.preventDefault();
+    const onRate = () => {
+      v.playbackRate = 1.0;
     };
 
-    v.addEventListener('timeupdate', onTime);
-    v.addEventListener('pause', onPause);
-    v.addEventListener('play', onPlay);
-    v.addEventListener('volumechange', onMute);
-    v.addEventListener('ended', onEnded);
+    v.addEventListener('contextmenu', onCtx);
+    v.addEventListener('ratechange', onRate);
 
     v.play().catch((e) => {
-      console.warn('Auto play failed, user interaction may be required', e);
+      console.warn('Playback failed, waiting for user click.', e);
     });
 
     return () => {
-      v.removeEventListener('timeupdate', onTime);
-      v.removeEventListener('pause', onPause);
-      v.removeEventListener('play', onPlay);
-      v.removeEventListener('volumechange', onMute);
-      v.removeEventListener('ended', onEnded);
+      v.removeEventListener('contextmenu', onCtx);
+      v.removeEventListener('ratechange', onRate);
     };
-  }, [p.impressionToken, p.apiBase, startedAt]);
+  }, [session]);
+
+  const handleEnded = async () => {
+    setEnded(true);
+    try {
+      const r = await finalize(videoRef.current);
+      if (r?.ok) {
+        onClaimed(r);
+      } else {
+        setError(r?.error || r?.reasons?.join('; ') || 'Claim verification failed');
+      }
+    } catch (e: any) {
+      setError(e.message || 'Claim verification failed');
+    }
+  };
 
   const showSkipButton = typeof window !== 'undefined' && (window as any).__molfi_test_skip_ad;
 
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-purple-500/20 bg-zinc-950 p-4 shadow-xl">
-      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black border border-zinc-800">
-        <video
-          ref={videoRef}
-          src={p.mp4Url}
-          playsInline
-          controls={false} // no seek/skip controls to enforce attention
-          className="h-full w-full object-cover"
-        />
-        <div className="absolute top-2 left-2 rounded bg-black/60 px-2 py-1 text-[10px] font-semibold text-purple-400 backdrop-blur-sm">
-          Attention Verification Active
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur">
+        <div className="text-xs font-mono text-purple-400 flex flex-col items-center gap-2">
+          <div className="h-6 w-6 rounded-full border-2 border-purple-500 border-t-transparent animate-spin" />
+          <span>Starting verified ad session...</span>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-between">
-        <a
-          href={p.ctaUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
-        >
-          Sponsored — learn more <span className="text-[10px]">↗</span>
-        </a>
-        <span className="text-[10px] text-zinc-500">
-          Duration: {(p.durationMs / 1000).toFixed(0)}s
-        </span>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur p-4">
+        <div className="w-full max-w-sm rounded-2xl border border-red-500/20 bg-zinc-950 p-6 shadow-2xl text-center">
+          <div className="text-red-400 text-xs font-bold mb-3">⚠️ Verification Rejected</div>
+          <p className="text-[11px] text-zinc-400 leading-relaxed break-words mb-5">{error}</p>
+          <button
+            onClick={onClose}
+            className="w-full rounded-xl bg-zinc-900 border border-zinc-800 py-2.5 text-xs font-bold text-text hover:bg-zinc-800 transition-all uppercase"
+          >
+            Close
+          </button>
+        </div>
       </div>
-      {showSkipButton && (
-        <button
-          onClick={triggerClaim}
-          className="mt-4 w-full rounded-xl bg-purple-600 py-3 text-sm font-bold text-white hover:bg-purple-700 transition-all cursor-pointer"
-        >
-          Claim 5 Credits
-        </button>
-      )}
+    );
+  }
+
+  if (!session) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-purple-500/20 bg-zinc-950 p-6 shadow-2xl flex flex-col gap-4">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Sponsored Attention Slot</span>
+            <h3 className="text-sm font-bold text-text mt-0.5">{session.title || 'Attention Placement'}</h3>
+          </div>
+          <span className="text-[10px] text-zinc-500 font-mono">
+            Earn {(Number(session.rewardUsdc) / 1e6).toFixed(4)} USDC
+          </span>
+        </div>
+
+        {/* Video Area */}
+        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black border border-zinc-800">
+          <video
+            ref={videoRef}
+            src={session.contentURI}
+            poster={session.thumbnailCid ? `https://gateway.pinata.cloud/ipfs/${session.thumbnailCid}` : undefined}
+            autoPlay
+            playsInline
+            controls={false}
+            onEnded={handleEnded}
+            className="h-full w-full object-contain"
+          />
+          
+          <div className="absolute top-3 left-3 rounded bg-black/60 px-2 py-1 text-[9px] font-semibold text-purple-400 backdrop-blur-sm tracking-wider uppercase">
+            Anti-Fraud Verification Active
+          </div>
+
+          {ended && (
+            <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-10 gap-2">
+              <div className="h-6 w-6 rounded-full border-2 border-purple-500 border-t-transparent animate-spin" />
+              <span className="text-xs font-semibold text-purple-400">Verifying attention proofs...</span>
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex items-center justify-between text-xs">
+          <a
+            href={session.ctaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-400 hover:text-purple-300 hover:underline transition-all font-semibold flex items-center gap-1"
+          >
+            {session.ctaText || 'Learn More'} ↗
+          </a>
+          <span className="text-[10px] text-zinc-500 font-mono">
+            Length: {(session.durationMs / 1000).toFixed(0)}s
+          </span>
+        </div>
+
+        {showSkipButton && (
+          <button
+            onClick={handleEnded}
+            className="w-full rounded-xl bg-purple-600 py-3 text-xs font-bold text-white hover:bg-purple-700 transition-all cursor-pointer uppercase tracking-wider"
+          >
+            Claim 5 Credits
+          </button>
+        )}
+      </div>
     </div>
   );
 }
