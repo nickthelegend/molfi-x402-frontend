@@ -5,7 +5,7 @@ import { useChatStore } from '../store/chatStore';
 import { VideoAd } from './ads/VideoAd';
 import { AdCompleteToast } from './ads/AdCompleteToast';
 
-export function AdViewer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export function AdViewer({ isOpen, onClose, onClaimed }: { isOpen: boolean; onClose: () => void; onClaimed?: (claimJson: any) => void }) {
   const { jwt, setJwt, setCredits } = useChatStore();
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
@@ -21,6 +21,9 @@ export function AdViewer({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
     }
     setToastMsg('Verified attention ad watched');
     setShowToast(true);
+    if (onClaimed) {
+      onClaimed(claimJson);
+    }
     onClose();
   };
 

@@ -35,7 +35,8 @@ export function VideoAd({
       .finally(() => {
         setLoading(false);
       });
-  }, [start]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Periodic heartbeat loop
   useEffect(() => {
@@ -76,7 +77,7 @@ export function VideoAd({
       if (r?.ok) {
         onClaimed(r);
       } else {
-        setError(r?.error || r?.reasons?.join('; ') || 'Claim verification failed');
+        setError(r?.reasons?.join('; ') || r?.error || 'Claim verification failed');
       }
     } catch (e: any) {
       setError(e.message || 'Claim verification failed');

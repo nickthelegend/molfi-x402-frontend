@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useWalletClient, useAccount } from 'wagmi';
+import { useWalletClient, useAccount, useReadContract, useWriteContract } from 'wagmi';
 import { useChatStore } from '../store/chatStore';
 import { requestCompletionsWithPay } from '../lib/x402-client';
 import { useTxModal } from './tx/TxModalProvider';
@@ -13,6 +13,9 @@ import { AgentModePanel } from './AgentModePanel';
 import { PaymentInspector } from './PaymentInspector';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AdViewer } from './AdViewer';
+import { formatUnits } from 'viem';
+import marketAbi from '../lib/abi/MolfiAdMarket.json';
 import { 
   Settings, 
   Send, 
@@ -27,7 +30,9 @@ import {
   Globe,
   Twitter,
   MessageCircle,
-  ArrowUpRight
+  ArrowUpRight,
+  Plus,
+  Trash2
 } from 'lucide-react';
 
 
@@ -94,7 +99,7 @@ const getModelCost = (modelId: string): number => {
   return costs[modelId] || 0.01;
 };
 
-export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
+export function ChatShell() {
   const {
     messages,
     selectedModel,
@@ -111,6 +116,13 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
     setInspectorData,
     incrementAgentSpent,
     clearChat,
+    sessions,
+    currentChatId,
+    isLoadingSessions,
+    loadSessions,
+    selectSession,
+    startNewSession,
+    deleteSession,
   } = useChatStore();
 
   const { data: walletClient } = useWalletClient();
@@ -126,6 +138,52 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [isAdOpen, setIsAdOpen] = useState(false);
+  const pendingPromptRef = useRef<string>('');
+
+  const marketAddress = process.env.NEXT_PUBLIC_AD_MARKET_ADDRESS as `0x${string}`;
+
+  // Read pending withdraw balance for the connected user
+  const { data: pendingBalance, refetch: refetchPendingBalance } = useReadContract({
+    address: marketAddress,
+    abi: marketAbi.abi,
+    functionName: 'pendingWithdraw',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address,
+    }
+  });
+
+  const { writeContractAsync, isPending: isWithdrawPending } = useWriteContract();
+
+  const handleWithdrawUSDC = async () => {
+    if (!address) return;
+    try {
+      const txHash = await writeContractAsync({
+        address: marketAddress,
+        abi: marketAbi.abi,
+        functionName: 'userWithdraw',
+      });
+      showTxModal({
+        hash: txHash,
+        status: 'pending',
+        network: 'avalanche-fuji',
+        label: 'USDC Withdraw',
+      });
+    } catch (err: any) {
+      console.error('Failed to withdraw USDC:', err);
+      alert(`Withdraw failed: ${err.message}`);
+    }
+  };
+
+  // Poll pending withdraw balance every 10s if wallet connected
+  useEffect(() => {
+    if (!address) return;
+    const interval = setInterval(() => {
+      refetchPendingBalance();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [address, refetchPendingBalance]);
 
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
@@ -134,6 +192,11 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Load sessions from IndexedDB on mount
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
 
   useEffect(() => {
     setMounted(true);
@@ -149,14 +212,14 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   };
 
 
-  const handleSendPrompt = async (promptText: string) => {
+  const handleSendPrompt = async (promptText: string, customJwt?: string) => {
     if (!promptText.trim() || loading) return;
 
     setError(null);
     setLoading(true);
 
-    const assistantMsgId = addMessage({ role: 'assistant', content: '' });
     addMessage({ role: 'user', content: promptText });
+    const assistantMsgId = addMessage({ role: 'assistant', content: '' });
 
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8787';
 
@@ -170,7 +233,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
         messages: chatMessages,
         walletClient,
         userAddress: address,
-        jwt,
+        jwt: customJwt || jwt,
         agentMode,
         agentPrivateKey,
         onPaymentCaptured: (data) => {
@@ -255,40 +318,36 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
   };
 
   const handleRequestClick = () => {
-    if (!promptValue.trim()) return;
+    if (!promptValue.trim() || loading) return;
 
     if (activeTab === 'human') {
-      if (!jwt || credits <= 0) {
-        onWatchAdClick();
-        return;
-      }
+      pendingPromptRef.current = promptValue;
+      setIsAdOpen(true);
     } else {
       if (!address && !agentPrivateKey) {
-        alert("Please connect your wallet or generate an Agent Key in the console drawer first to proceed under Agent mode.");
-        setConsoleOpen(true);
+        alert("Please connect your wallet or set up an Agent Key in the settings first to proceed under Agent mode.");
+        setIsLogModalOpen(true);
         return;
       }
+      handleSendPrompt(promptValue);
+      setPromptValue('');
     }
-
-    handleSendPrompt(promptValue);
-    setPromptValue('');
-    setConsoleOpen(true);
   };
 
   const handleGearClick = () => {
-    setConsoleOpen(true);
+    setIsLogModalOpen(true);
   };
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#050505] text-text select-none relative font-sans">
-      {/* 1. Left Console Drawer */}
+      {/* 1. Left Chat History Drawer */}
       {consoleOpen && (
-        <div className="flex w-[400px] flex-col bg-[#0b0b0d] border-r border-border p-4 transition-all duration-300 z-30">
-          {/* Console Header */}
+        <div className="flex w-[320px] flex-col bg-[#0b0b0d] border-r border-border p-4 transition-all duration-300 z-30">
+          {/* Header */}
           <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
-            <span className="text-xs font-mono text-text-muted uppercase tracking-widest flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-              MOLFI TERMINAL CONSOLE
+            <span className="text-xs font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
+              <MessageCircle size={14} className="text-primary" />
+              CHATS
             </span>
             <button
               onClick={() => setConsoleOpen(false)}
@@ -298,47 +357,112 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
             </button>
           </div>
 
-          <div className="flex-1 flex flex-col justify-between overflow-hidden gap-4">
-            {/* Dev Controls */}
-            <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
-              <div className="bg-[#14141a]/40 border border-border p-4 rounded-xl">
-                <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-2 border-b border-border/40 pb-1">
-                  Agent Auth Key
-                </span>
-                <AgentModePanel />
-              </div>
-              
-              <div className="bg-[#14141a]/40 border border-border p-4 rounded-xl flex-1 flex flex-col min-h-[200px]">
-                <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-2 border-b border-border/40 pb-1">
-                  x402 Telemetry log
-                </span>
-                <div className="flex-1 overflow-y-auto text-xs">
-                  <PaymentInspector />
-                </div>
-              </div>
-            </div>
+          {/* New Chat Button */}
+          <button
+            onClick={() => startNewSession()}
+            className="w-full mb-4 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border/80 bg-surface-2/20 py-3 text-xs font-bold uppercase tracking-wider text-white hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
+          >
+            <Plus size={14} className="text-text-muted group-hover:text-primary transition-colors" />
+            New Chat
+          </button>
 
-            {/* Clear conversation */}
-            <button
-              onClick={clearChat}
-              className="w-full rounded-lg border border-border bg-surface-2/40 py-2.5 text-xs font-semibold text-text hover:border-text-muted transition-all cursor-pointer uppercase tracking-wider"
-            >
-              Clear Console Chat
-            </button>
+          {/* Chats list */}
+          <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2 scrollbar-thin">
+            {isLoadingSessions ? (
+              <div className="flex flex-col gap-2 p-2">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="h-12 w-full bg-surface-2/10 rounded-xl animate-pulse" />
+                ))}
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 text-center px-4">
+                <MessageCircle size={24} className="text-text-dim mb-2 opacity-40 animate-pulse" />
+                <span className="text-[10px] text-text-muted uppercase tracking-wider">No chats yet</span>
+              </div>
+            ) : (
+              sessions.map((session) => {
+                const isActive = session.id === currentChatId;
+                const formattedTime = new Date(session.updatedAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
+                return (
+                  <div
+                    key={session.id}
+                    className={`group relative flex items-center justify-between p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
+                      isActive
+                        ? 'bg-primary/10 border-primary/40 text-white shadow-[0_0_15px_rgba(200,153,255,0.05)] font-bold'
+                        : 'bg-surface-2/20 border-border/40 text-text-muted hover:border-border hover:bg-surface-2/40 hover:text-white'
+                    }`}
+                    onClick={() => selectSession(session.id)}
+                  >
+                    <div className="flex flex-col gap-1 overflow-hidden pr-6">
+                      <span className="text-xs truncate">
+                        {session.title || 'Untitled Chat'}
+                      </span>
+                      <span className="text-[9px] text-text-dim opacity-70 font-mono">
+                        {formattedTime}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteSession(session.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 hover:text-accent p-1.5 rounded-lg bg-surface-2/80 border border-border/40 hover:border-accent/40 absolute right-2 top-1/2 -translate-y-1/2 transition-all cursor-pointer"
+                      title="Delete chat"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* On-Chain Earnings Section */}
+          <div className="border-t border-border pt-4 mt-4 bg-surface-2/10 p-3.5 rounded-xl border border-border/60">
+            <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-2 border-b border-border/40 pb-1">
+              On-Chain Cashflow
+            </span>
+            {address ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-text-muted font-medium">Earned Balance:</span>
+                  <span className="text-xs font-mono font-bold text-primary">
+                    {formatUnits(pendingBalance as bigint || 0n, 6)} USDC
+                  </span>
+                </div>
+                <button
+                  onClick={handleWithdrawUSDC}
+                  disabled={!pendingBalance || (pendingBalance as bigint) === 0n || isWithdrawPending}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary text-black py-2.5 text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-95 cursor-pointer primary-glow"
+                >
+                  {isWithdrawPending ? 'Processing...' : 'Withdraw USDC'}
+                </button>
+              </div>
+            ) : (
+              <span className="text-[10px] text-text-dim block text-center py-2">
+                Connect wallet to view/withdraw USDC earnings
+              </span>
+            )}
           </div>
         </div>
       )}
 
-      {/* Vertical Collapsed Console Trigger */}
+      {/* Vertical Collapsed Chats Trigger */}
       {!consoleOpen && (
         <button
           onClick={() => setConsoleOpen(true)}
           className="fixed left-0 top-1/2 -translate-y-1/2 bg-primary text-black border-r border-y border-outline-variant/20 rounded-r-2xl py-6 px-3 flex flex-col items-center gap-3 cursor-pointer shadow-2xl hover:brightness-110 transition-all z-40"
         >
           <span className="text-[9px] font-black uppercase tracking-[0.25em] select-none text-center" style={{ writingMode: 'vertical-rl' }}>
-            Console
+            Chats
           </span>
-          <Terminal size={14} className="text-black" />
+          <MessageCircle size={14} className="text-black" />
         </button>
       )}
 
@@ -361,30 +485,19 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
 
             {/* Action controls + Connect Wallet */}
             <div className="flex items-center gap-4">
-              {/* Credits counter & Earn Credits button */}
-              {mounted && (
-                <div className="flex items-center gap-2 border border-border bg-surface-2/40 px-3 py-1.5 rounded-xl text-xs text-white">
-                  <span>🎬 <span data-testid="credits-balance">{credits}</span> credits</span>
-                  <button
-                    onClick={onWatchAdClick}
-                    className="text-primary hover:text-primary/80 transition-all font-bold cursor-pointer ml-1"
-                  >
-                    Earn Credits
-                  </button>
-                </div>
-              )}
+
 
               <button
                 onClick={() => setConsoleOpen(!consoleOpen)}
                 className="text-text-muted hover:text-white cursor-pointer p-1.5 rounded hover:bg-surface-2/40 transition-all"
-                title="Toggle Developer Console"
+                title="Toggle Chat History"
               >
-                <Monitor size={18} />
+                <MessageCircle size={18} />
               </button>
               <button
                 onClick={handleGearClick}
                 className="text-text-muted hover:text-white cursor-pointer p-1.5 rounded hover:bg-surface-2/40 transition-all"
-                title="Configure Console Settings"
+                title="Developer Logs & Settings"
               >
                 <Settings size={18} />
               </button>
@@ -455,7 +568,7 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
                   <div className="rounded-2xl border border-border bg-surface-2/20 p-5 backdrop-blur-sm">
                     <div className="text-lg mb-2">🎬 <span className="font-bold text-white uppercase tracking-wider text-xs ml-1">Human Rail</span></div>
                     <p className="text-xs text-text-muted leading-relaxed">
-                      Watch short sponsor advertisements to earn free message credits. Perfect for manual testing and chat play.
+                      Watch short sponsor advertisements in-stream to fund your query. Completely free for manual testing.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-border bg-surface-2/20 p-5 backdrop-blur-sm">
@@ -657,6 +770,18 @@ export function ChatShell({ onWatchAdClick }: { onWatchAdClick: () => void }) {
           </div>
         )}
       </AnimatePresence>
+
+      <AdViewer
+        isOpen={isAdOpen}
+        onClose={() => setIsAdOpen(false)}
+        onClaimed={(claimJson) => {
+          if (pendingPromptRef.current) {
+            handleSendPrompt(pendingPromptRef.current, claimJson.jwt);
+            pendingPromptRef.current = '';
+            setPromptValue('');
+          }
+        }}
+      />
     </div>
   );
 }

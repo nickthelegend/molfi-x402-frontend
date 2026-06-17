@@ -33,9 +33,17 @@ function hbMessage(sessionId: string, nonceHex: string, hb: Heartbeat) {
 export function useAdSession(jwt: string | null, setJwt: (jwt: string | null) => void) {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
+
+  const signMessageRef = useRef(signMessageAsync);
+  useEffect(() => {
+    signMessageRef.current = signMessageAsync;
+  }, [signMessageAsync]);
+
   const [session, setSession] = useState<any>(null);
   const heartbeats = useRef<Heartbeat[]>([]);
   const startTs = useRef<number>(0);
+  const signingFirst = useRef(false);
+  const finalizing = useRef(false);
 
   const loginUser = useCallback(async () => {
     if (!address || !isConnected) throw new Error('Wallet not connected');
@@ -60,7 +68,7 @@ Chain ID: 43113
 Nonce: ${nonce}
 Issued At: ${new Date().toISOString()}`;
 
-    const signature = await signMessageAsync({ message: siweMessage });
+    const signature = await signMessageRef.current({ message: siweMessage });
 
     const verifyRes = await fetch(`${BACKEND}/v1/users/auth/verify`, {
       method: 'POST',
@@ -71,7 +79,7 @@ Issued At: ${new Date().toISOString()}`;
     const { token } = await verifyRes.json();
     setJwt(token);
     return token;
-  }, [address, isConnected, signMessageAsync, setJwt]);
+  }, [address, isConnected, setJwt]);
 
   const start = useCallback(async (opts: { surface: 'chat-web' | 'extension'; kind: 'text' | 'image' | 'video'; modelInUse?: string }) => {
     let currentJwt = jwt;
@@ -103,11 +111,15 @@ Issued At: ${new Date().toISOString()}`;
     setSession(s);
     heartbeats.current = [];
     startTs.current = Date.now();
+    signingFirst.current = false;
+    finalizing.current = false;
     return s;
   }, [jwt, loginUser]);
 
   const beat = useCallback(async (video: HTMLVideoElement | null) => {
-    if (!session) return;
+    if (!session || finalizing.current) return;
+    if (signingFirst.current) return;
+
     const hb: Heartbeat = {
       t: Date.now() - startTs.current,
       currentTime: video?.currentTime ?? (Date.now() - startTs.current) / 1000,
@@ -120,14 +132,36 @@ Issued At: ${new Date().toISOString()}`;
     // Sign first heartbeat
     const isFirst = heartbeats.current.length === 0;
     if (isFirst) {
-      hb.sig = await signMessageAsync({ message: hbMessage(session.sessionId, session.nonceHex, hb) });
+      signingFirst.current = true;
+      const wasPlaying = video && !video.paused;
+      if (wasPlaying) {
+        video.pause();
+      }
+      try {
+        // Set hb.t to 0 BEFORE signing so the signed message matches the final submitted object
+        hb.t = 0;
+        hb.sig = await signMessageRef.current({ message: hbMessage(session.sessionId, session.nonceHex, hb) });
+        // Align startTs with the signature completion time to prevent gap verification failures
+        startTs.current = Date.now();
+        heartbeats.current.push(hb);
+        if (wasPlaying && video) {
+          video.play().catch(console.error);
+        }
+      } catch (err) {
+        console.error('Failed to sign first heartbeat:', err);
+      } finally {
+        signingFirst.current = false;
+      }
+    } else {
+      heartbeats.current.push(hb);
     }
-    heartbeats.current.push(hb);
-  }, [session, signMessageAsync]);
+  }, [session]);
 
   const finalize = useCallback(async (video: HTMLVideoElement | null) => {
-    if (!session) return null;
+    if (!session || finalizing.current) return null;
     
+    finalizing.current = true;
+
     // Force a last beat WITH signature
     const last: Heartbeat = {
       t: Date.now() - startTs.current,
@@ -137,8 +171,15 @@ Issued At: ${new Date().toISOString()}`;
       visible: document.visibilityState === 'visible',
       focused: document.hasFocus(),
     };
-    last.sig = await signMessageAsync({ message: hbMessage(session.sessionId, session.nonceHex, last) });
-    heartbeats.current.push(last);
+
+    try {
+      last.sig = await signMessageRef.current({ message: hbMessage(session.sessionId, session.nonceHex, last) });
+      heartbeats.current.push(last);
+    } catch (err) {
+      console.error('Failed to sign last heartbeat:', err);
+      finalizing.current = false;
+      throw err;
+    }
 
     const r = await fetch(`${BACKEND}/v1/ads/claim`, {
       method: 'POST',
@@ -155,8 +196,9 @@ Issued At: ${new Date().toISOString()}`;
     
     const out = await r.json();
     setSession(null);
+    finalizing.current = false;
     return { ok: r.ok, status: r.status, ...out };
-  }, [session, signMessageAsync, jwt]);
+  }, [session, jwt]);
 
   // Safety triggers — kill session if tab hidden too long
   useEffect(() => {

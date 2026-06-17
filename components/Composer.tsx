@@ -39,8 +39,8 @@ export function Composer({ onWatchAdClick }: { onWatchAdClick: () => void }) {
     setInput('');
     setLoading(true);
 
-    const assistantMsgId = addMessage({ role: 'assistant', content: '' });
     addMessage({ role: 'user', content: userPrompt });
+    const assistantMsgId = addMessage({ role: 'assistant', content: '' });
 
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8787';
 

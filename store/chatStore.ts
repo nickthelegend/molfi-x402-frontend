@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import { ChatSession, getChats, getChat, saveChat, deleteChat } from '../lib/db';
 
 export interface Message {
   id: string;
@@ -28,6 +29,10 @@ interface ChatState {
   agentSpendLimit: number;
   agentSpent: number;
   inspectorData: InspectorData | null;
+  sessions: ChatSession[];
+  currentChatId: string | null;
+  isLoadingSessions: boolean;
+
   addMessage: (msg: Omit<Message, 'id'>) => string;
   updateMessageContent: (id: string, chunk: string) => void;
   updateMessageMetadata: (id: string, metadata: Partial<Message>) => void;
@@ -40,6 +45,11 @@ interface ChatState {
   setAgentSpendLimit: (limit: number) => void;
   setInspectorData: (data: InspectorData | null) => void;
   clearChat: () => void;
+
+  loadSessions: () => Promise<void>;
+  selectSession: (id: string) => Promise<void>;
+  startNewSession: () => void;
+  deleteSession: (id: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -53,27 +63,162 @@ export const useChatStore = create<ChatState>((set, get) => ({
   agentSpendLimit: 1.00,
   agentSpent: 0.00,
   inspectorData: null,
+  sessions: [],
+  currentChatId: null,
+  isLoadingSessions: false,
+
+  loadSessions: async () => {
+    set({ isLoadingSessions: true });
+    try {
+      const chats = await getChats();
+      set({ sessions: chats });
+      if (!get().currentChatId && chats.length > 0) {
+        set({
+          currentChatId: chats[0].id,
+          messages: chats[0].messages,
+        });
+      } else if (!get().currentChatId) {
+        get().startNewSession();
+      }
+    } catch (err) {
+      console.error('Failed to load chat sessions:', err);
+    } finally {
+      set({ isLoadingSessions: false });
+    }
+  },
+
+  selectSession: async (id) => {
+    try {
+      const chat = await getChat(id);
+      if (chat) {
+        set({
+          currentChatId: chat.id,
+          messages: chat.messages,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load chat session:', err);
+    }
+  },
+
+  startNewSession: () => {
+    const newId = Math.random().toString(36).substring(7);
+    set({
+      currentChatId: newId,
+      messages: [],
+    });
+  },
+
+  deleteSession: async (id) => {
+    try {
+      await deleteChat(id);
+      const remainingSessions = get().sessions.filter((s) => s.id !== id);
+      set({ sessions: remainingSessions });
+      if (get().currentChatId === id) {
+        if (remainingSessions.length > 0) {
+          const first = remainingSessions[0];
+          set({
+            currentChatId: first.id,
+            messages: first.messages,
+          });
+        } else {
+          get().startNewSession();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to delete chat session:', err);
+    }
+  },
 
   addMessage: (msg) => {
     const id = Math.random().toString(36).substring(7);
-    set((state) => ({
-      messages: [...state.messages, { ...msg, id }],
-    }));
+    let chatId = get().currentChatId;
+    if (!chatId) {
+      chatId = Math.random().toString(36).substring(7);
+      set({ currentChatId: chatId });
+    }
+
+    set((state) => {
+      const newMsgs = [...state.messages, { ...msg, id }];
+      
+      let title = '';
+      const existingSession = state.sessions.find(s => s.id === chatId);
+      if (existingSession) {
+        title = existingSession.title;
+      } else {
+        if (msg.role === 'user') {
+          title = msg.content.trim().substring(0, 35);
+          if (msg.content.trim().length > 35) title += '...';
+        } else {
+          title = 'New Chat';
+        }
+      }
+
+      const session: ChatSession = {
+        id: chatId!,
+        title: title || 'New Chat',
+        createdAt: existingSession ? existingSession.createdAt : Date.now(),
+        updatedAt: Date.now(),
+        messages: newMsgs,
+      };
+
+      saveChat(session)
+        .then(() => get().loadSessions())
+        .catch((err) => console.error('Failed to save chat to IndexedDB:', err));
+
+      return { messages: newMsgs };
+    });
     return id;
   },
 
   updateMessageContent: (id, chunk) => {
-    set((state) => ({
-      messages: state.messages.map((m) =>
+    set((state) => {
+      const newMsgs = state.messages.map((m) =>
         m.id === id ? { ...m, content: m.content + chunk } : m
-      ),
-    }));
+      );
+
+      const chatId = state.currentChatId;
+      if (chatId) {
+        const existingSession = state.sessions.find((s) => s.id === chatId);
+        const session: ChatSession = {
+          id: chatId,
+          title: existingSession ? existingSession.title : 'New Chat',
+          createdAt: existingSession ? existingSession.createdAt : Date.now(),
+          updatedAt: Date.now(),
+          messages: newMsgs,
+        };
+
+        saveChat(session)
+          .then(() => get().loadSessions())
+          .catch((err) => console.error('Failed to save chat to IndexedDB:', err));
+      }
+
+      return { messages: newMsgs };
+    });
   },
 
   updateMessageMetadata: (id, metadata) => {
-    set((state) => ({
-      messages: state.messages.map((m) => (m.id === id ? { ...m, ...metadata } : m)),
-    }));
+    set((state) => {
+      const newMsgs = state.messages.map((m) => (m.id === id ? { ...m, ...metadata } : m));
+
+      const chatId = state.currentChatId;
+      if (chatId) {
+        const existingSession = state.sessions.find((s) => s.id === chatId);
+        const session: ChatSession = {
+          id: chatId,
+          title: existingSession ? existingSession.title : 'New Chat',
+          createdAt: existingSession ? existingSession.createdAt : Date.now(),
+          updatedAt: Date.now(),
+          messages: newMsgs,
+        };
+
+        saveChat(session)
+          .then(() => get().loadSessions())
+          .catch((err) => console.error('Failed to save chat to IndexedDB:', err));
+      }
+
+      return { messages: newMsgs };
+    });
   },
 
   setCredits: (credits) => set({ credits }),
@@ -111,5 +256,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setInspectorData: (inspectorData) => set({ inspectorData }),
 
-  clearChat: () => set({ messages: [], inspectorData: null }),
+  clearChat: () => {
+    const chatId = get().currentChatId;
+    if (chatId) {
+      deleteChat(chatId)
+        .then(() => get().loadSessions())
+        .catch((err) => console.error('Failed to delete chat:', err));
+    }
+    set({ messages: [], inspectorData: null });
+  },
 }));
